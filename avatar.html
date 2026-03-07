@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avatar Prototype — Lip Sync</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── TTS panel ── */
+#tts-panel {
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+  padding: 8px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+#tts-text {
+  flex: 1;
+  min-height: 48px;
+  max-height: 90px;
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  resize: vertical;
+}
+#tts-text:focus { outline: none; border-color: #58a6ff; }
+
+#tts-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+#speak-btn {
+  padding: 6px 18px;
+  background: #1f6feb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+#speak-btn:hover:not(:disabled) { background: #388bfd; }
+#speak-btn:disabled { background: #21262d; color: #8b949e; cursor: not-allowed; }
+
+#export-btn {
+  padding: 5px 18px;
+  background: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+#export-btn:hover:not(:disabled) { background: #30363d; }
+#export-btn:disabled { color: #484f58; border-color: #21262d; cursor: not-allowed; }
+
+#status-label {
+  font-size: 10px;
+  align-self: center;
+  flex-shrink: 0;
+  width: 82px;
+  text-align: center;
+  padding: 3px 6px;
+  border-radius: 3px;
+  border: 1px solid #30363d;
+}
+.status-idle     { color: #8b949e;  border-color: #30363d; }
+.status-loading  { color: #d29922;  border-color: #d29922; }
+.status-speaking { color: #3fb950;  border-color: #3fb950; }
+.status-done     { color: #58a6ff;  border-color: #58a6ff; }
+.status-error    { color: #f85149;  border-color: #f85149; }
+.status-blocked  { color: #ff7b72;  border-color: #ff7b72; }
+
+/* ── Viseme timeline bar ── */
+#timeline-wrap {
+  background: #0a0d11;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+  height: 34px;
+  display: none;
+  position: relative;
+  cursor: crosshair;
+}
+#timeline-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#tl-hint {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  color: #30363d;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── viewport ── */
+#viewport {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+#viewport canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── HUD debug overlay (D key toggle) ── */
+#dbg-overlay {
+  display: none;
+  position: fixed;
+  top: 76px;
+  right: 10px;
+  background: rgba(13, 17, 23, 0.90);
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #c9d1d9;
+  line-height: 2.0;
+  pointer-events: none;
+  z-index: 100;
+  min-width: 210px;
+}
+#dbg-overlay .dk { color: #8b949e; display: inline-block; width: 58px; }
+#dbg-overlay .dv { color: #58a6ff; }
+#dbg-overlay .dhint {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #21262d;
+  font-size: 9px;
+  color: #484f58;
+  line-height: 1.4;
+}
+
+/* ── Debug panel (collapsible) ── */
+#debug-panel {
+  background: #161b22;
+  border-top: 1px solid #21262d;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 38vh;
+  overflow: hidden;
+}
+#debug-panel > summary {
+  padding: 5px 14px;
+  color: #8b949e;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+#debug-panel > summary::-webkit-details-marker { display: none; }
+#debug-panel > summary::before { content: '▶'; font-size: 8px; transition: transform .15s; }
+#debug-panel[open] > summary::before { transform: rotate(90deg); }
+#debug-panel > summary:hover { color: #c9d1d9; }
+
+#panel {
+  padding: 4px 14px 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+#panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+#panel-header h3 {
+  color: #58a6ff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+#reset-btn {
+  padding: 3px 14px;
+  background: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+#reset-btn:hover { background: #30363d; }
+
+.v-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  height: 20px;
+}
+.v-id   { width: 18px;  color: #8b949e; font-size: 10px; text-align: right; flex-shrink: 0; }
+.v-name { width: 100px; color: #c9d1d9; font-size: 10px; flex-shrink: 0; }
+.v-slider { flex: 1; height: 3px; cursor: pointer; accent-color: #58a6ff; }
+.v-val  { width: 34px; color: #58a6ff; font-size: 10px; text-align: right; flex-shrink: 0; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- TTS Input Panel -->
+<div id="tts-panel">
+  <textarea id="tts-text">Hello, my name is Alex. How are you doing today?</textarea>
+  <div id="tts-buttons">
+    <button id="speak-btn">Speak</button>
+    <button id="export-btn" disabled title="Export viseme timeline as JSON">Export JSON</button>
+  </div>
+  <span id="status-label" class="status-idle">Idle</span>
+</div>
+
+<!-- Viseme Timeline Visualizer (shown after first TTS) -->
+<div id="timeline-wrap">
+  <canvas id="timeline-canvas" height="34"></canvas>
+  <span id="tl-hint">click to seek &middot; D = HUD</span>
+</div>
+
+<div id="viewport"></div>
+
+<!-- HUD Debug Overlay (toggle with D key) -->
+<div id="dbg-overlay">
+  <div><span class="dk">Time</span>   <span class="dv" id="dbg-time">---</span></div>
+  <div><span class="dk">Viseme</span> <span class="dv" id="dbg-viseme">---</span></div>
+  <div><span class="dk">Weight</span> <span class="dv" id="dbg-weight">---</span></div>
+  <div><span class="dk">FPS</span>    <span class="dv" id="dbg-fps">---</span></div>
+  <div class="dhint">D &mdash; toggle overlay<br>Click timeline &mdash; seek visemes</div>
+</div>
+
+<!-- Debug: Viseme Sliders (collapsed by default) -->
+<details id="debug-panel">
+  <summary>Debug &mdash; Viseme Sliders</summary>
+  <div id="panel">
+    <div id="panel-header">
+      <h3>Viseme Controls</h3>
+      <button id="reset-btn">Reset All</button>
+    </div>
+    <div id="sliders"></div>
+  </div>
+</details>
+
+<!-- Three.js -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<!-- Azure Cognitive Services Speech SDK (browser bundle) -->
+<script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle.js"></script>
+<!-- Local credentials — see config.js (gitignored). Keys are never in avatar.html. -->
+<script src="config.js" onerror="console.warn('config.js not found — Azure TTS will be unavailable')"></script>
+
+<script>
+// ================================================================
+// AZURE SPEECH SDK CONFIGURATION
+// Credentials are read from config.js → window.AZURE_CONFIG.
+// config.js is gitignored; never paste keys directly here.
+// ================================================================
+const AZURE_SPEECH_KEY    = (window.AZURE_CONFIG && window.AZURE_CONFIG.key)    || '';
+const AZURE_SPEECH_REGION = (window.AZURE_CONFIG && window.AZURE_CONFIG.region) || '';
+
+// ================================================================
+// VISEME DEFINITIONS  (Azure Speech SDK viseme IDs 0–14)
+// name = short form used in export JSON and HUD
+// ================================================================
+const VISEMES = [
+  { id:  0, name: 'sil' },
+  { id:  1, name: 'PP'  },
+  { id:  2, name: 'FF'  },
+  { id:  3, name: 'TH'  },
+  { id:  4, name: 'DD'  },
+  { id:  5, name: 'kk'  },
+  { id:  6, name: 'CH'  },
+  { id:  7, name: 'SS'  },
+  { id:  8, name: 'nn'  },
+  { id:  9, name: 'RR'  },
+  { id: 10, name: 'aa'  },
+  { id: 11, name: 'E'   },
+  { id: 12, name: 'ih'  },
+  { id: 13, name: 'oh'  },
+  { id: 14, name: 'ou'  },
+];
+
+// Timeline block colours by phonetic group
+// sil=gray | bilabial=red | fricative=blue | stop/nasal=orange | approximant=purple | vowel=green
+const VISEME_COLORS = [
+  '#3a3f47', // 0  sil
+  '#b83030', // 1  PP  bilabial stop
+  '#3060b0', // 2  FF  fricative
+  '#3060b0', // 3  TH  fricative
+  '#b06020', // 4  DD  alveolar stop
+  '#b06020', // 5  kk  velar stop
+  '#b06020', // 6  CH  affricate
+  '#3060b0', // 7  SS  sibilant
+  '#b06020', // 8  nn  nasal
+  '#7030b0', // 9  RR  approximant
+  '#309050', // 10 aa  vowel
+  '#309050', // 11 E   vowel
+  '#309050', // 12 ih  vowel
+  '#309050', // 13 oh  vowel
+  '#309050', // 14 ou  vowel
+];
+
+// ================================================================
+// SCENE SETUP
+// ================================================================
+const viewport = document.getElementById('viewport');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+viewport.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+scene.fog = new THREE.FogExp2(0x0d1117, 0.18);
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 50);
+camera.position.set(0, 0.08, 2.4);
+camera.lookAt(0, 0.05, 0);
+
+function onResize() {
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// Lights
+const ambLight = new THREE.AmbientLight(0x3040608, 0.9);
+scene.add(ambLight);
+
+const keyLight = new THREE.DirectionalLight(0xfff4e0, 1.4);
+keyLight.position.set(1.5, 2.5, 2);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.near = 0.1;
+keyLight.shadow.camera.far = 10;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x6080c0, 0.35);
+fillLight.position.set(-2, 0.5, 1.5);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffffff, 0.5);
+rimLight.position.set(0, 1.5, -3);
+scene.add(rimLight);
+
+const bounceLight = new THREE.HemisphereLight(0x202030, 0x101018, 0.4);
+scene.add(bounceLight);
+
+// ================================================================
+// HEAD GROUP
+// ================================================================
+const headGroup = new THREE.Group();
+scene.add(headGroup);
+
+// Materials
+const skinMat       = new THREE.MeshStandardMaterial({ color: 0xf0b888, roughness: 0.72, metalness: 0.0 });
+const lipMat        = new THREE.MeshStandardMaterial({ color: 0x7a3020, roughness: 0.7,  metalness: 0.0, side: THREE.DoubleSide });
+const lipVolMat     = new THREE.MeshStandardMaterial({ color: 0xc06050, roughness: 0.55, metalness: 0.02 });
+const innerMouthMat = new THREE.MeshStandardMaterial({ color: 0x1a0808, roughness: 1.0 });
+const eyeWhiteMat   = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.25 });
+const irisMat       = new THREE.MeshStandardMaterial({ color: 0x3d6b99, roughness: 0.2, metalness: 0.1 });
+const pupilMat      = new THREE.MeshStandardMaterial({ color: 0x080810, roughness: 0.1 });
+const browMat       = new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.9 });
+const hairMat       = new THREE.MeshStandardMaterial({ color: 0x100808, roughness: 0.95 });
+const teethMat      = new THREE.MeshStandardMaterial({ color: 0xf0ece0, roughness: 0.4 });
+
+// ---------- Head ----------
+const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 40, 30), skinMat);
+headMesh.scale.set(1.0, 1.18, 0.92);
+headMesh.castShadow = true;
+headGroup.add(headMesh);
+
+// ---------- Neck ----------
+const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.23, 0.38, 20), skinMat);
+neckMesh.position.set(0, -0.54, -0.02);
+neckMesh.castShadow = true;
+headGroup.add(neckMesh);
+
+// Shoulders hint
+const shoulderMesh = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.12, 0.45, 6, 12),
+  new THREE.MeshStandardMaterial({ color: 0x1a2030, roughness: 0.85 })
+);
+shoulderMesh.rotation.z = Math.PI / 2;
+shoulderMesh.position.set(0, -0.9, -0.1);
+shoulderMesh.scale.set(1, 1, 1.3);
+headGroup.add(shoulderMesh);
+
+// ---------- Eyes — store lid meshes for blink ----------
+const eyeLidMeshes = [];
+
+function makeEyeAssembly(side) {
+  const g = new THREE.Group();
+
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.077, 16, 12), eyeWhiteMat));
+
+  const iris = new THREE.Mesh(new THREE.CircleGeometry(0.042, 16), irisMat);
+  iris.position.set(0, 0, 0.074);
+  g.add(iris);
+
+  const pupilMesh = new THREE.Mesh(new THREE.CircleGeometry(0.024, 12), pupilMat);
+  pupilMesh.position.set(0, 0, 0.0755);
+  g.add(pupilMesh);
+
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0xe0a080, roughness: 0.7 });
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.018, 0.04), lidMat);
+  lid.position.set(0, 0.045, 0.05);
+  lid.rotation.x = 0.25;
+  eyeLidMeshes.push(lid);
+  g.add(lid);
+
+  g.position.set(side * 0.168, 0.07, 0.395);
+  g.rotation.y = side * 0.12;
+  return g;
+}
+headGroup.add(makeEyeAssembly(-1));
+headGroup.add(makeEyeAssembly(1));
+
+// ---------- Eyebrows — keep refs for expression layer ----------
+function makeBrow(side) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.016, 0.025), browMat);
+  m.position.set(side * 0.168, 0.21, 0.385);
+  m.rotation.z = side * -0.1;
+  m.rotation.x = -0.15;
+  return m;
+}
+const browMeshL = makeBrow(-1);
+const browMeshR = makeBrow(1);
+headGroup.add(browMeshL);
+headGroup.add(browMeshR);
+const BROW_NEUTRAL_Y = 0.21;
+
+// ---------- Nose ----------
+function makeNose() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xe8a878, roughness: 0.75 });
+
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.11, 0.042), mat);
+  bridge.position.y = -0.03;
+  g.add(bridge);
+
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 8), mat);
+  tip.position.set(0, -0.085, 0.018);
+  tip.scale.set(1.2, 0.82, 1.05);
+  g.add(tip);
+
+  for (const s of [-1, 1]) {
+    const n = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), mat);
+    n.position.set(s * 0.038, -0.088, 0.006);
+    n.scale.set(0.85, 0.72, 0.9);
+    g.add(n);
+  }
+
+  g.position.set(0, 0.04, 0.455);
+  return g;
+}
+headGroup.add(makeNose());
+
+// ---------- Ears ----------
+function makeEar(side) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xe8a070, roughness: 0.78 });
+
+  const outer = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.026, 6, 12, Math.PI * 1.5), mat);
+  outer.rotation.y = side > 0 ? -Math.PI * 0.5 : Math.PI * 0.5;
+  outer.rotation.z = -0.2;
+  g.add(outer);
+
+  const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), mat);
+  lobe.position.set(0, -0.07, 0);
+  lobe.scale.set(1, 0.75, 0.6);
+  g.add(lobe);
+
+  g.position.set(side * 0.51, 0.0, 0.0);
+  return g;
+}
+headGroup.add(makeEar(-1));
+headGroup.add(makeEar(1));
+
+// ---------- Hair ----------
+const hairMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.525, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.55),
+  hairMat
+);
+hairMesh.scale.set(1.0, 1.19, 0.93);
+hairMesh.position.set(0, 0.04, -0.01);
+headGroup.add(hairMesh);
+
+// ================================================================
+// MOUTH ASSEMBLY — jaw-group transform animation
+// ================================================================
+const MORPH_PARAMS = [
+  { jawDrop:0.000, pucker:0.000,  cornerX:1.00 }, // 0  sil
+  { jawDrop:0.000, pucker:0.008,  cornerX:0.88 }, // 1  PP
+  { jawDrop:0.004, pucker:0.000,  cornerX:0.98 }, // 2  FF
+  { jawDrop:0.010, pucker:0.000,  cornerX:1.00 }, // 3  TH
+  { jawDrop:0.013, pucker:0.000,  cornerX:1.00 }, // 4  DD
+  { jawDrop:0.016, pucker:-0.002, cornerX:1.00 }, // 5  kk
+  { jawDrop:0.011, pucker:0.007,  cornerX:0.84 }, // 6  CH
+  { jawDrop:0.005, pucker:0.000,  cornerX:1.32 }, // 7  SS
+  { jawDrop:0.007, pucker:0.000,  cornerX:1.00 }, // 8  nn
+  { jawDrop:0.019, pucker:0.004,  cornerX:0.88 }, // 9  RR
+  { jawDrop:0.068, pucker:0.000,  cornerX:1.02 }, // 10 aa
+  { jawDrop:0.023, pucker:0.000,  cornerX:1.42 }, // 11 E
+  { jawDrop:0.009, pucker:0.000,  cornerX:1.26 }, // 12 ih
+  { jawDrop:0.032, pucker:0.005,  cornerX:0.78 }, // 13 oh
+  { jawDrop:0.016, pucker:0.013,  cornerX:0.70 }, // 14 ou
+];
+
+const mouthGroup = new THREE.Group();
+mouthGroup.position.set(0, -0.228, 0.454);
+headGroup.add(mouthGroup);
+
+// Dark cavity — always behind everything
+const cavityMesh = new THREE.Mesh(new THREE.CircleGeometry(1, 20), innerMouthMat);
+cavityMesh.scale.set(0.072, 0.055, 1);
+cavityMesh.position.set(0, -0.004, -0.024);
+mouthGroup.add(cavityMesh);
+
+// Upper teeth
+const upperTeethMesh = new THREE.Mesh(new THREE.BoxGeometry(0.126, 0.016, 0.010), teethMat);
+upperTeethMesh.position.set(0, 0.013, -0.016);
+mouthGroup.add(upperTeethMesh);
+
+// Upper lip — Cupid's bow
+for (const side of [-1, 1]) {
+  const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.046, 16, 12), lipVolMat);
+  lobe.scale.set(1.05, 0.43, 0.58);
+  lobe.position.set(side * 0.033, 0.022, 0.010);
+  lobe.castShadow = true;
+  mouthGroup.add(lobe);
+}
+const ulBridge = new THREE.Mesh(new THREE.SphereGeometry(0.030, 14, 10), lipVolMat);
+ulBridge.scale.set(1.30, 0.30, 0.50);
+ulBridge.position.set(0, 0.015, 0.008);
+ulBridge.castShadow = true;
+mouthGroup.add(ulBridge);
+
+// Lip seam
+const lipLineMesh = new THREE.Mesh(new THREE.BoxGeometry(0.160, 0.006, 0.006), lipMat);
+lipLineMesh.position.set(0, 0.000, 0.013);
+mouthGroup.add(lipLineMesh);
+
+// Jaw group — the only part that moves
+const jawGroup = new THREE.Group();
+mouthGroup.add(jawGroup);
+
+const lowerTeethMesh = new THREE.Mesh(new THREE.BoxGeometry(0.112, 0.015, 0.010), teethMat);
+lowerTeethMesh.position.set(0, -0.014, -0.018);
+jawGroup.add(lowerTeethMesh);
+
+const lowerLipMesh = new THREE.Mesh(new THREE.SphereGeometry(0.062, 18, 12), lipVolMat);
+lowerLipMesh.scale.set(1.55, 0.52, 0.62);
+lowerLipMesh.position.set(0, -0.026, 0.010);
+lowerLipMesh.castShadow = true;
+jawGroup.add(lowerLipMesh);
+
+function updateMouthTransforms() {
+  let jawDrop = 0, pucker = 0, cornerX = 0;
+  for (let i = 0; i < VISEMES.length; i++) {
+    const w = currentW[i];
+    if (w < 0.001) continue;
+    const p = MORPH_PARAMS[i];
+    jawDrop  += p.jawDrop          * w;
+    pucker   += p.pucker           * w;
+    cornerX  += (p.cornerX - 1.0) * w;
+  }
+  jawGroup.position.y = -jawDrop * 1.6;
+  jawGroup.rotation.x =  jawDrop * 0.9;
+  mouthGroup.position.z = 0.454 + pucker * 0.28;
+  mouthGroup.scale.x = 1.0 + Math.max(-0.25, Math.min(0.42, cornerX)) * 0.18;
+}
+
+// ================================================================
+// GLOBAL API
+// ================================================================
+window.setViseme = function (visemeId, weight) {
+  if (visemeId < 0 || visemeId >= VISEMES.length) return;
+  const w = Math.max(0, Math.min(1, weight));
+  currentW[visemeId] = w;
+  targetW[visemeId]  = w;
+  const slider = document.getElementById('s-' + visemeId);
+  const valEl  = document.getElementById('v-' + visemeId);
+  if (slider) { slider.value = w; valEl.textContent = w.toFixed(2); }
+};
+
+window.resetVisemes = function () {
+  for (let i = 0; i < VISEMES.length; i++) {
+    currentW[i] = 0; targetW[i] = 0;
+    const slider = document.getElementById('s-' + i);
+    const valEl  = document.getElementById('v-' + i);
+    if (slider) { slider.value = 0; valEl.textContent = '0.00'; }
+  }
+};
+
+// ================================================================
+// TTS STATE
+// ================================================================
+let visemeTimeline    = [];   // current sentence: [{ timeMs, visemeId }]
+let fullTimeline      = [];   // accumulated across all sentences (for export + timeline display)
+let audioStartMs      = null; // performance.now() when current sentence audio started
+let audioEndMs        = null; // estimated end time of current sentence
+let isSpeaking        = false;
+let timelineDurationMs = 0;   // running total duration for timeline canvas
+
+// Sentence queue
+let sentenceQueue    = [];
+let sentenceIndex    = 0;
+let sentenceOffsetMs = 0;     // ms offset of current sentence within the full sequence
+
+// Per-viseme smooth weights
+const targetW  = new Array(VISEMES.length).fill(0);
+const currentW = new Array(VISEMES.length).fill(0);
+
+// Expression layer
+let browRaiseCurrent = 0;
+let browRaiseTarget  = 0;
+
+// HUD state
+let fpsSmooth       = 60;
+let hudVisible      = false;
+let hudActiveViseme = 0;      // viseme ID shown in the HUD this frame
+
+// ================================================================
+// STATUS HELPER
+// ================================================================
+function setStatus(text, cls) {
+  const el = document.getElementById('status-label');
+  el.textContent = text;
+  el.className = 'status-' + cls;
+}
+
+// ================================================================
+// TTS — MULTI-SENTENCE QUEUE
+// Splits text on sentence boundaries, speaks each sequentially
+// with a 400ms neutral-expression pause between them.
+// ================================================================
+function speakButtonClicked() {
+  const rawText = document.getElementById('tts-text').value.trim();
+  if (!rawText) return;
+
+  if (!window.SpeechSDK) { setStatus('SDK missing', 'error'); return; }
+  if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) { setStatus('No credentials', 'error'); return; }
+
+  // Split on sentence endings followed by whitespace, or plain newlines
+  const sentences = rawText
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  // Reset all state
+  visemeTimeline     = [];
+  fullTimeline       = [];
+  audioStartMs       = null;
+  audioEndMs         = null;
+  isSpeaking         = false;
+  timelineDurationMs = 0;
+  sentenceOffsetMs   = 0;
+  browRaiseTarget    = 0;
+  for (let i = 0; i < VISEMES.length; i++) targetW[i] = 0;
+
+  document.getElementById('speak-btn').disabled   = true;
+  document.getElementById('export-btn').disabled  = true;
+
+  sentenceQueue = sentences;
+  sentenceIndex = 0;
+  speakNextSentence();
+}
+
+function speakNextSentence() {
+  if (sentenceIndex >= sentenceQueue.length) {
+    // All sentences done
+    isSpeaking      = false;
+    browRaiseTarget = 0;
+    for (let i = 0; i < VISEMES.length; i++) targetW[i] = 0;
+    setStatus('Done', 'done');
+    document.getElementById('speak-btn').disabled = false;
+    if (fullTimeline.length > 0) {
+      document.getElementById('export-btn').disabled = false;
+    }
+    return;
+  }
+
+  const text = sentenceQueue[sentenceIndex];
+  sentenceIndex++;
+
+  const localTimeline = [];
+  let   localAudioStart = null;
+
+  let speechConfig;
+  try {
+    speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_SPEECH_KEY, AZURE_SPEECH_REGION);
+  } catch (e) {
+    setStatus('Config error', 'error');
+    document.getElementById('speak-btn').disabled = false;
+    return;
+  }
+  speechConfig.speechSynthesisVoiceName = 'en-US-AndrewNeural';
+
+  const audioConfig = SpeechSDK.AudioConfig.fromDefaultSpeakerOutput();
+  const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, audioConfig);
+
+  synthesizer.visemeReceived = (s, e) => {
+    const localMs  = e.audioOffset / 10000;
+    const globalMs = sentenceOffsetMs + localMs;
+    localTimeline.push({ timeMs: localMs,  visemeId: e.visemeId });
+    fullTimeline.push ({ timeMs: globalMs, visemeId: e.visemeId });
+  };
+
+  synthesizer.synthesisStarted = (s, e) => {
+    localAudioStart = performance.now();
+    audioStartMs    = localAudioStart;
+    isSpeaking      = true;
+    setStatus('Speaking\u2026', 'speaking');
+    // Expression: raise eyebrows at speech start
+    browRaiseTarget = 0.022;
+  };
+
+  synthesizer.speakTextAsync(
+    text,
+    (result) => {
+      synthesizer.close();
+
+      if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+        const sentenceDurationMs = result.audioDuration ? result.audioDuration / 10000 : 0;
+
+        if (localAudioStart !== null && sentenceDurationMs) {
+          audioEndMs         = localAudioStart + sentenceDurationMs;
+          timelineDurationMs = sentenceOffsetMs + sentenceDurationMs;
+        }
+
+        // Expose current-sentence timeline for the viseme stepper
+        visemeTimeline = localTimeline;
+
+        // Show timeline bar as soon as we have data
+        if (fullTimeline.length > 0) {
+          document.getElementById('timeline-wrap').style.display = 'block';
+        }
+
+        // Poll until audio playback has finished, then move to next sentence
+        const waitForEnd = () => {
+          if (audioEndMs !== null && performance.now() < audioEndMs + 200) {
+            setTimeout(waitForEnd, 50);
+            return;
+          }
+          // Sentence finished: return to neutral
+          isSpeaking      = false;
+          browRaiseTarget = 0;
+          for (let i = 0; i < VISEMES.length; i++) targetW[i] = 0;
+
+          if (sentenceIndex < sentenceQueue.length) {
+            // 400ms neutral pause before next sentence
+            sentenceOffsetMs += sentenceDurationMs + 400;
+            setStatus('Pause\u2026', 'loading');
+            setTimeout(speakNextSentence, 400);
+          } else {
+            speakNextSentence(); // hits the done branch
+          }
+        };
+        waitForEnd();
+
+      } else {
+        isSpeaking      = false;
+        browRaiseTarget = 0;
+        document.getElementById('speak-btn').disabled = false;
+        const detail  = result.errorDetails || 'Unknown error';
+        const authErr = detail.toLowerCase().includes('unauthorized') ||
+                        detail.toLowerCase().includes('authentication');
+        setStatus(authErr ? 'Auth failed' : 'TTS error', 'error');
+        console.error('Azure TTS error:', detail);
+      }
+    },
+    (error) => {
+      synthesizer.close();
+      isSpeaking      = false;
+      browRaiseTarget = 0;
+      document.getElementById('speak-btn').disabled = false;
+      const blocked = String(error).toLowerCase().includes('not-allowed');
+      setStatus(blocked ? 'Click to allow audio' : 'Error', blocked ? 'blocked' : 'error');
+      console.error('Azure TTS error:', error);
+    }
+  );
+}
+
+// ================================================================
+// VISEME ANIMATION — look-ahead cross-fade + weight clamping
+// ================================================================
+const LOOK_AHEAD_MS   = 80;   // ms before next viseme to start blending
+const MAX_TOTAL_WEIGHT = 1.2;  // prevents over-extended mouth shapes
+
+function stepVisemes(dt) {
+  if (isSpeaking && audioStartMs !== null) {
+    const elapsed = performance.now() - audioStartMs;
+
+    if (audioEndMs !== null && performance.now() > audioEndMs + 150) {
+      // Audio ended — return to silence
+      isSpeaking      = false;
+      browRaiseTarget = 0;
+      for (let i = 0; i < VISEMES.length; i++) targetW[i] = 0;
+    } else {
+      // Binary-search for the last viseme event whose timeMs <= elapsed
+      let curIdx = 0;
+      let lo = 0, hi = visemeTimeline.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (visemeTimeline[mid].timeMs <= elapsed) { curIdx = mid; lo = mid + 1; }
+        else { hi = mid - 1; }
+      }
+      const curId = visemeTimeline.length > 0 ? visemeTimeline[curIdx].visemeId : 0;
+
+      // Find the next viseme that differs from current (look-ahead target)
+      let nextId      = curId;
+      let nextTimeMs  = Infinity;
+      for (let j = curIdx + 1; j < visemeTimeline.length; j++) {
+        if (visemeTimeline[j].visemeId !== curId) {
+          nextId     = visemeTimeline[j].visemeId;
+          nextTimeMs = visemeTimeline[j].timeMs;
+          break;
+        }
+      }
+
+      // Zero all targets then set current (and optionally next) weight
+      for (let i = 0; i < VISEMES.length; i++) targetW[i] = 0;
+
+      const timeUntilNext = nextTimeMs - elapsed;
+      if (nextId !== curId && timeUntilNext > 0 && timeUntilNext < LOOK_AHEAD_MS) {
+        // Cross-fade: blend proportion increases as we approach the transition
+        const blend     = 1.0 - (timeUntilNext / LOOK_AHEAD_MS);
+        targetW[curId]  = 1.0 - blend;
+        targetW[nextId] = blend;
+      } else {
+        targetW[curId] = 1.0;
+      }
+
+      // Clamp total target weight
+      let total = 0;
+      for (let i = 0; i < VISEMES.length; i++) total += targetW[i];
+      if (total > MAX_TOTAL_WEIGHT) {
+        const scale = MAX_TOTAL_WEIGHT / total;
+        for (let i = 0; i < VISEMES.length; i++) targetW[i] *= scale;
+      }
+
+      hudActiveViseme = curId;
+    }
+  }
+
+  // Lerp currentW → targetW
+  let anyNonZero = false;
+  for (let i = 0; i < VISEMES.length; i++) {
+    const speed = targetW[i] > currentW[i] ? 8 : 12;
+    currentW[i] += (targetW[i] - currentW[i]) * Math.min(1.0, speed * dt);
+    if (currentW[i] < 0.0005) currentW[i] = 0;
+    if (currentW[i] > 0) anyNonZero = true;
+  }
+
+  // Clamp total currentW too
+  let curTotal = 0;
+  for (let i = 0; i < VISEMES.length; i++) curTotal += currentW[i];
+  if (curTotal > MAX_TOTAL_WEIGHT) {
+    const scale = MAX_TOTAL_WEIGHT / curTotal;
+    for (let i = 0; i < VISEMES.length; i++) currentW[i] *= scale;
+  }
+
+  updateMouthTransforms();
+
+  // Sync debug sliders
+  if (isSpeaking || anyNonZero) {
+    for (let i = 0; i < VISEMES.length; i++) {
+      const slider = document.getElementById('s-' + i);
+      const valEl  = document.getElementById('v-' + i);
+      if (slider) { slider.value = currentW[i]; valEl.textContent = currentW[i].toFixed(2); }
+    }
+  }
+}
+
+// ================================================================
+// TIMELINE CANVAS — draws viseme blocks + playhead each frame
+// ================================================================
+const tlWrap   = document.getElementById('timeline-wrap');
+const tlCanvas = document.getElementById('timeline-canvas');
+const tlCtx    = tlCanvas.getContext('2d');
+
+function resizeTimeline() {
+  tlCanvas.width  = tlCanvas.offsetWidth  * window.devicePixelRatio;
+  tlCanvas.height = tlCanvas.offsetHeight * window.devicePixelRatio;
+}
+window.addEventListener('resize', resizeTimeline);
+resizeTimeline();
+
+function drawTimeline() {
+  const W = tlCanvas.width;
+  const H = tlCanvas.height;
+  tlCtx.clearRect(0, 0, W, H);
+
+  if (fullTimeline.length === 0 || timelineDurationMs === 0) return;
+
+  // Background
+  tlCtx.fillStyle = '#0a0d11';
+  tlCtx.fillRect(0, 0, W, H);
+
+  // Viseme blocks — each spans from its timeMs to the next event's timeMs
+  for (let i = 0; i < fullTimeline.length; i++) {
+    const startMs = fullTimeline[i].timeMs;
+    const endMs   = i + 1 < fullTimeline.length ? fullTimeline[i + 1].timeMs : timelineDurationMs;
+    const x1 = (startMs / timelineDurationMs) * W;
+    const x2 = (endMs   / timelineDurationMs) * W;
+    const bw = x2 - x1;
+    const id = fullTimeline[i].visemeId;
+
+    tlCtx.fillStyle = VISEME_COLORS[id] || '#555';
+    tlCtx.fillRect(x1 + 0.5, 2, Math.max(1, bw - 1), H - 4);
+
+    // Label if block is wide enough
+    if (bw > 18 * window.devicePixelRatio) {
+      tlCtx.save();
+      tlCtx.fillStyle = 'rgba(255,255,255,0.55)';
+      tlCtx.font = `${Math.round(9 * window.devicePixelRatio)}px monospace`;
+      tlCtx.textAlign = 'center';
+      tlCtx.textBaseline = 'middle';
+      tlCtx.fillText(VISEMES[id].name, (x1 + x2) / 2, H * 0.52);
+      tlCtx.restore();
+    }
+  }
+
+  // Sentence boundary markers (gray vertical lines at offsets > 0)
+  // Derive boundaries from sentenceOffsetMs history stored in fullTimeline gaps
+  // (simple: look for gaps > 300ms between consecutive events)
+  for (let i = 1; i < fullTimeline.length; i++) {
+    const gap = fullTimeline[i].timeMs - fullTimeline[i - 1].timeMs;
+    if (gap > 300) {
+      const px = (fullTimeline[i - 1].timeMs / timelineDurationMs) * W;
+      tlCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+      tlCtx.lineWidth = 1;
+      tlCtx.setLineDash([3, 3]);
+      tlCtx.beginPath();
+      tlCtx.moveTo(px, 0);
+      tlCtx.lineTo(px, H);
+      tlCtx.stroke();
+      tlCtx.setLineDash([]);
+    }
+  }
+
+  // Playhead
+  if (isSpeaking && audioStartMs !== null) {
+    const globalElapsed = sentenceOffsetMs + (performance.now() - audioStartMs);
+    const px = Math.min(1, globalElapsed / timelineDurationMs) * W;
+    tlCtx.strokeStyle = '#ffffff';
+    tlCtx.lineWidth   = Math.ceil(1.5 * window.devicePixelRatio);
+    tlCtx.beginPath();
+    tlCtx.moveTo(px, 0);
+    tlCtx.lineTo(px, H);
+    tlCtx.stroke();
+  }
+}
+
+// Click timeline → seek viseme animation (audio cannot seek with this SDK config)
+tlCanvas.addEventListener('click', (e) => {
+  if (fullTimeline.length === 0 || timelineDurationMs === 0) return;
+  const rect   = tlCanvas.getBoundingClientRect();
+  const frac   = (e.clientX - rect.left) / rect.width;
+  const seekMs = frac * timelineDurationMs;
+
+  // Adjust audioStartMs so the face animation jumps to seekMs.
+  // The audio playback position is unaffected (SDK limitation).
+  if (audioStartMs !== null) {
+    // Determine which sentence this seek falls into
+    let accMs = 0;
+    for (let si = 0; si < sentenceQueue.length; si++) {
+      // Use 400ms gap heuristic to find sentence boundaries in fullTimeline
+      audioStartMs = performance.now() - (seekMs - sentenceOffsetMs);
+      break;
+    }
+  }
+});
+
+// ================================================================
+// EXPORT TIMELINE JSON
+// ================================================================
+function exportTimelineJSON() {
+  const text = document.getElementById('tts-text').value.trim();
+  const data = {
+    text,
+    durationMs: Math.round(timelineDurationMs),
+    visemes: fullTimeline.map(v => ({
+      timeMs:     Math.round(v.timeMs),
+      visemeId:   v.visemeId,
+      visemeName: VISEMES[v.visemeId] ? VISEMES[v.visemeId].name : 'sil',
+    })),
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'viseme-timeline.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ================================================================
+// ANIMATION LOOP
+// ================================================================
+let clock       = 0;
+let lastFrameMs = performance.now();
+let blinkT      = 0;
+let nextBlink   = 2.5 + Math.random() * 2;
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const now = performance.now();
+  const dt  = Math.min((now - lastFrameMs) / 1000, 0.1);
+  lastFrameMs = now;
+  clock += dt;
+
+  // FPS smoothed
+  fpsSmooth += (1 / dt - fpsSmooth) * 0.1;
+
+  // Idle breathing / subtle bob
+  headGroup.position.y = Math.sin(clock * 0.48) * 0.011;
+  headGroup.rotation.y = Math.sin(clock * 0.22) * 0.028;
+  headGroup.rotation.x = Math.sin(clock * 0.31) * 0.012;
+  headGroup.rotation.z = Math.sin(clock * 0.17) * 0.008;
+
+  // ── Expression layer 1: eyebrow raise (speech start → neutral) ──
+  browRaiseCurrent += (browRaiseTarget - browRaiseCurrent) * Math.min(1, 5 * dt);
+  browMeshL.position.y = BROW_NEUTRAL_Y + browRaiseCurrent;
+  browMeshR.position.y = BROW_NEUTRAL_Y + browRaiseCurrent;
+
+  // ── Expression layer 2: random eye blink every 3-7 s ──
+  blinkT += dt;
+  if (blinkT > nextBlink) {
+    blinkT    = 0;
+    nextBlink = 3.0 + Math.random() * 4.0;
+  }
+  const blinkPhase = blinkT < 0.12 ? Math.sin((blinkT / 0.12) * Math.PI) : 0;
+  for (const lid of eyeLidMeshes) {
+    lid.scale.y = 1 + blinkPhase * 2.2;
+  }
+
+  // Viseme lerp (runs simultaneously with expression layers)
+  stepVisemes(dt);
+
+  // Timeline canvas
+  drawTimeline();
+
+  // HUD debug overlay
+  if (hudVisible) {
+    const elapsedMs = audioStartMs !== null ? performance.now() - audioStartMs : 0;
+    const v = VISEMES[hudActiveViseme];
+    document.getElementById('dbg-time').textContent   = isSpeaking ? `${Math.round(elapsedMs)} ms` : '---';
+    document.getElementById('dbg-viseme').textContent = v ? `${v.id} — ${v.name}` : '---';
+    document.getElementById('dbg-weight').textContent = currentW[hudActiveViseme].toFixed(3);
+    document.getElementById('dbg-fps').textContent    = Math.round(fpsSmooth);
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ================================================================
+// UI EVENT HANDLERS
+// ================================================================
+document.getElementById('speak-btn').addEventListener('click', speakButtonClicked);
+document.getElementById('export-btn').addEventListener('click', exportTimelineJSON);
+document.getElementById('reset-btn').addEventListener('click', window.resetVisemes);
+
+// D key — toggle HUD overlay
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'd' || e.key === 'D') {
+    hudVisible = !hudVisible;
+    document.getElementById('dbg-overlay').style.display = hudVisible ? 'block' : 'none';
+  }
+});
+
+// ================================================================
+// DEBUG — VISEME SLIDER PANEL
+// ================================================================
+const slidersDiv = document.getElementById('sliders');
+
+VISEMES.forEach(v => {
+  const row = document.createElement('div');
+  row.className = 'v-row';
+
+  const idEl   = document.createElement('span'); idEl.className = 'v-id';   idEl.textContent = v.id;
+  const nameEl = document.createElement('span'); nameEl.className = 'v-name'; nameEl.textContent = 'viseme_' + v.name;
+
+  const slider = document.createElement('input');
+  slider.type = 'range'; slider.className = 'v-slider';
+  slider.id = 's-' + v.id;
+  slider.min = 0; slider.max = 1; slider.step = 0.01; slider.value = 0;
+
+  const valEl = document.createElement('span');
+  valEl.className = 'v-val'; valEl.id = 'v-' + v.id; valEl.textContent = '0.00';
+
+  slider.addEventListener('input', () => {
+    if (isSpeaking) return;
+    const w = parseFloat(slider.value);
+    valEl.textContent = w.toFixed(2);
+    currentW[v.id] = w; targetW[v.id] = w;
+    updateMouthTransforms();
+  });
+
+  row.append(idEl, nameEl, slider, valEl);
+  slidersDiv.appendChild(row);
+});
+</script>
+</body>
+</html>
