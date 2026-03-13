@@ -29,7 +29,16 @@
       "Bash(find c:/Users/yuval/src/aivatar/unity/aivatar -name *RenderPipelineAsset* -o -name *UniversalRenderPipeline*)",
       "Bash(find c:/Users/yuval/src/aivatar/unity/aivatar -name *.shader -o -name *.shadergraph)",
       "Bash(grep -l 933532a4fcc9baf4fa0491de14d08ed7 c:/Users/yuval/src/aivatar/unity/aivatar/Library/metadata/*)",
-      "Bash(wc -l \"c:/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Materials\"/*.mat)"
+      "Bash(wc -l \"c:/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Materials\"/*.mat)",
+      "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Editor -type f -name *.cs)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/yuval/src/aivatar/**)",
+      "Bash(done)",
+      "Bash(echo capture:*)",
+      "Bash(rm -f \"C:/Users/yuval/src/aivatar/unity/aivatar/screenshot_result.txt\" && echo capture > \"C:/Users/yuval/src/aivatar/unity/aivatar/screenshot_request.txt\")",
+      "Bash(rm -f \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_result.txt\" && echo screenshot > \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_request.txt\" && sleep 2 && ls \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_request.txt\" 2>&1 && ls \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_result.txt\" 2>&1)",
+      "Bash(rm -rf \"C:/Users/yuval/src/aivatar/.claude/commands\" && mkdir -p \"C:/Users/yuval/src/aivatar/.claude/skills\")"
     ]
   }
 }

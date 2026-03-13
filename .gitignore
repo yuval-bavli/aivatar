@@ -5,6 +5,9 @@ config.js
 unity/aivatar/Packages/com.vrmc.gltf/
 unity/aivatar/Packages/com.vrmc.vrm/
 
+# Screenshots captured at runtime
+unity/aivatar/Assets/Screenshots/
+
 # Unity generated directories
 unity/aivatar/Library/
 unity/aivatar/Temp/
