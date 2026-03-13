@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"c:/Users/yuval/src/aivatar/unity/Depedencies/FetchTranscription/Azure.Core\"*)",
+      "Bash(DEST=\"c:/Users/yuval/src/aivatar/unity/aivatar/Assets/SpeechSDK/Plugins/x86_64\")",
+      "Bash(UNITY_NET=\"c:/Program Files/Unity/Hub/Editor/6000.3.10f1/Editor/Data/NetCoreRuntime/shared/Microsoft.NETCore.App/6.0.21\")",
+      "Bash(DEPS=\"c:/Users/yuval/src/aivatar/unity/Depedencies/FetchTranscription\")",
+      "Bash(__NEW_LINE_7aa3912af0a27b34__ cp \"$UNITY_NET/System.Text.Json.dll\" \"$DEST/\")",
+      "Bash(cp \"$UNITY_NET/System.Text.Encodings.Web.dll\" \"$DEST/\")",
+      "Bash(cp \"$UNITY_NET/System.Diagnostics.DiagnosticSource.dll\" \"$DEST/\")",
+      "Bash(cp \"$DEPS/System.Memory.Data.dll\" \"$DEST/\")",
+      "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets -type f \\\\\\(-name *.fbx -o -name *.obj -o -name *.blend -o -name *.dae -o -name *.gltf -o -name *.glb -o -name *.max \\\\\\))",
+      "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets -type f \\\\\\(-name *.png -o -name *.jpg -o -name *.jpeg -o -name *.tga -o -name *.tif -o -name *.psd \\\\\\))",
+      "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar -type f -name *.meta)",
+      "Bash(ls -lh /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.fbx /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.FBX /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.vrm)"
+    ]
+  }
+}
