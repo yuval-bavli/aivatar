@@ -12,7 +12,24 @@
       "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets -type f \\\\\\(-name *.fbx -o -name *.obj -o -name *.blend -o -name *.dae -o -name *.gltf -o -name *.glb -o -name *.max \\\\\\))",
       "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets -type f \\\\\\(-name *.png -o -name *.jpg -o -name *.jpeg -o -name *.tga -o -name *.tif -o -name *.psd \\\\\\))",
       "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar -type f -name *.meta)",
-      "Bash(ls -lh /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.fbx /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.FBX /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.vrm)"
+      "Bash(ls -lh /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.fbx /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.FBX /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/*.vrm)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(find unity/aivatar/Packages -path \"*/VrmScriptedImporterImpl.cs\" 2>/dev/null | head -3)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(find /c/Users/yuval/src/aivatar/unity/aivatar/Assets -path */Avatar/* -not -name *.meta)",
+      "Bash(grep -rl \"199f9f46eb08393449a4bf7e623c9bc1\" /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Textures/*.meta)",
+      "Bash(grep -rl \"aad5d92093ff5294fbe702be6132e4d7\" /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Textures/*.meta)",
+      "Bash(grep -rl \"b6c883e4bb8eb4a45975b863f40a54ff\" /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Textures/*.meta)",
+      "Bash(grep -rl \"d767491fe25de2c4f994e367095bbf8c\" /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Textures/*.meta)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(ls -la /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Textures/BakedEye*.png)",
+      "Bash(find c:/Users/yuval/src/aivatar/unity/aivatar/Assets -name *.prefab -type f)",
+      "Bash(find c:/Users/yuval/src/aivatar/unity/aivatar -name *RenderPipelineAsset* -o -name *UniversalRenderPipeline*)",
+      "Bash(find c:/Users/yuval/src/aivatar/unity/aivatar -name *.shader -o -name *.shadergraph)",
+      "Bash(grep -l 933532a4fcc9baf4fa0491de14d08ed7 c:/Users/yuval/src/aivatar/unity/aivatar/Library/metadata/*)",
+      "Bash(wc -l \"c:/Users/yuval/src/aivatar/unity/aivatar/Assets/Models/Avatar/Materials\"/*.mat)"
     ]
   }
 }

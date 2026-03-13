@@ -12,7 +12,7 @@ public static class WireModel2
         (10, "aa"),  (11, "E"),   (12, "ih"),  (13, "oh"),  (14, "ou"),
     };
 
-    [MenuItem("Aivatar/Wire Model2 to Avatar")]
+    [MenuItem("Aivatar/Wire Model4 to Avatar")]
     public static void Wire()
     {
         // 1. Find Avatar + ProLipSync in scene
@@ -21,16 +21,16 @@ public static class WireModel2
         var lipSync = avatarGO.GetComponent<ProLipSync>();
         if (lipSync == null) { Debug.LogError("ProLipSync not found on Avatar."); return; }
 
-        // 2. Find model2 in scene (top-level or child)
-        var model2GO = GameObject.Find("model2_embedded");
-        if (model2GO == null) { Debug.LogError("'model2_embedded' not found in scene. Drag model2_embedded into the Hierarchy first."); return; }
+        // 2. Find model4 in scene (top-level or child)
+        var model4GO = GameObject.Find("model4");
+        if (model4GO == null) { Debug.LogError("'model4' not found in scene. Drag model4_embedded into the Hierarchy first."); return; }
 
         // 3. Get AvatarHead — has all 15 viseme blendshapes
-        var head = FindSMR(model2GO, "AvatarHead");
-        if (head == null) { Debug.LogError("SkinnedMeshRenderer 'AvatarHead' not found under model2."); return; }
+        var head = FindSMR(model4GO, "AvatarHead");
+        if (head == null) { Debug.LogError("SkinnedMeshRenderer 'AvatarHead' not found under model4."); return; }
 
         // 4. Create VisemeMapping asset
-        string assetPath = "Assets/Model2VisemeMapping.asset";
+        string assetPath = "Assets/Model4VisemeMapping.asset";
         var mapping = AssetDatabase.LoadAssetAtPath<VisemeMapping>(assetPath);
         if (mapping == null)
         {
@@ -47,12 +47,12 @@ public static class WireModel2
         AssetDatabase.SaveAssets();
 
         // 5. Wire ProLipSync
-        Undo.RecordObject(lipSync, "Wire Model2 to ProLipSync");
+        Undo.RecordObject(lipSync, "Wire Model4 to ProLipSync");
         lipSync.faceMesh       = head;
         lipSync.mappingProfile = mapping;
         EditorUtility.SetDirty(lipSync);
 
-        Debug.Log($"[WireModel2] Done. ProLipSync.faceMesh = {head.name}, mapping saved to {assetPath}");
+        Debug.Log($"[WireModel4] Done. ProLipSync.faceMesh = {head.name}, mapping saved to {assetPath}");
         Selection.activeGameObject = avatarGO;
     }
 

@@ -23,7 +23,7 @@ public static class SetupChatUI
         Undo.RegisterCreatedObjectUndo(canvasGO, "Create ChatCanvas");
 
         // ── EventSystem ──────────────────────────────────────────────────────────
-        if (Object.FindObjectOfType<EventSystem>() == null)
+        if (Object.FindFirstObjectByType<EventSystem>() == null)
         {
             var esGO = new GameObject("EventSystem");
             esGO.AddComponent<EventSystem>();
@@ -121,11 +121,11 @@ public static class SetupChatUI
         var chatUI           = panelGO.AddComponent<AvatarChatUI>();
         chatUI.inputField    = inputField;
         chatUI.sendButton    = btn;
-        var speech           = Object.FindObjectOfType<AzureSpeechManager>();
+        var speech           = Object.FindFirstObjectByType<AzureSpeechManager>();
         chatUI.speechManager = speech;
 
         // ── Disable TestSpeak so it doesn't auto-fire ────────────────────────────
-        var testSpeak = Object.FindObjectOfType<TestSpeak>();
+        var testSpeak = Object.FindFirstObjectByType<TestSpeak>();
         if (testSpeak != null)
         {
             testSpeak.enabled = false;
