@@ -1,3 +1,9 @@
+---
+name: unity-run
+description: Reference for the Unity file-based agent bridge — how to send commands (screenshot, refresh, execute) to the Unity Editor without using the UI.
+user-invocable: false
+---
+
 # Unity Agent Bridge — Running Commands Without the UI
 
 The Unity project has a file-based bridge that lets you execute commands inside the Unity Editor without focusing the window or using any menus.
@@ -45,6 +51,16 @@ When you add or modify a script, `refresh` before calling `execute`:
 3. Send `execute ClassName.MethodName` → read the return value
 
 Methods called via `execute` must be `public static` with no parameters and return a value (or `void` → result is `"OK"`). If the logic is complex, wrap it in such a method.
+
+## Preferred: use the Python unity_bridge module
+
+```python
+import sys; sys.path.insert(0, 'unity_3d_model_improver')
+import unity_bridge
+unity_bridge.refresh()
+result = unity_bridge.execute('ClassName.MethodName')
+shot_path = unity_bridge.screenshot()
+```
 
 ## Error handling
 

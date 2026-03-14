@@ -26,3 +26,25 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# Python virtual environment
+.venv/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ollama models (large binaries — re-pulled by setup.sh)
+unity_3d_model_improver/ai_models/
+
+# Material backups created by mat_editor.py
+unity_3d_model_improver/mat_backups/
+
+# Unity agent bridge temp files
+unity/aivatar/agent_request.txt
+unity/aivatar/agent_result.txt
+unity/aivatar/bake_eyebrows_log.txt
+unity/aivatar/diagnose_result.txt
+unity/aivatar/fixv*.txt
+unity/aivatar/screenshot_result.txt

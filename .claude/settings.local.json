@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(*)",
       "Bash(ls \"c:/Users/yuval/src/aivatar/unity/Depedencies/FetchTranscription/Azure.Core\"*)",
       "Bash(DEST=\"c:/Users/yuval/src/aivatar/unity/aivatar/Assets/SpeechSDK/Plugins/x86_64\")",
       "Bash(UNITY_NET=\"c:/Program Files/Unity/Hub/Editor/6000.3.10f1/Editor/Data/NetCoreRuntime/shared/Microsoft.NETCore.App/6.0.21\")",
@@ -38,7 +39,17 @@
       "Bash(echo capture:*)",
       "Bash(rm -f \"C:/Users/yuval/src/aivatar/unity/aivatar/screenshot_result.txt\" && echo capture > \"C:/Users/yuval/src/aivatar/unity/aivatar/screenshot_request.txt\")",
       "Bash(rm -f \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_result.txt\" && echo screenshot > \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_request.txt\" && sleep 2 && ls \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_request.txt\" 2>&1 && ls \"C:/Users/yuval/src/aivatar/unity/aivatar/agent_result.txt\" 2>&1)",
-      "Bash(rm -rf \"C:/Users/yuval/src/aivatar/.claude/commands\" && mkdir -p \"C:/Users/yuval/src/aivatar/.claude/skills\")"
+      "Bash(rm -rf \"C:/Users/yuval/src/aivatar/.claude/commands\" && mkdir -p \"C:/Users/yuval/src/aivatar/.claude/skills\")",
+      "Bash(ls /c/Users/yuval/src/aivatar/unity/aivatar/Assets/Editor/*.cs)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(rm -f \"C:/Users/yuval/src/aivatar/**\")",
+      "Bash(rm -f \"unity/aivatar/**\")",
+      "Bash(rm -f \"unity/aivatar/agent_result.txt\" && echo \"screenshot\" > \"unity/aivatar/agent_request.txt\"*)",
+      "Bash(rm -f \"unity/aivatar/agent_result.txt\" && echo \"refresh\" > \"unity/aivatar/agent_request.txt\"*)",
+      "Bash(rm -f \"unity/aivatar/agent_result.txt\" && echo \"execute*)",
+      "Bash(bash unity/aivatar/agent.sh*)",
+      "Bash(bash unity/aivatar/clear_agent.sh*)",
+      "WebSearch"
     ]
   }
 }
