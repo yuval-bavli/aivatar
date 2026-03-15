@@ -15,8 +15,8 @@ from __future__ import annotations
 import subprocess
 import sys
 
-PRIMARY_MODEL  = "qwen3-vl:8b"     # Qwen3 vision-language model, ~6GB VRAM
-FALLBACK_MODEL = "qwen2.5vl:7b"   # fallback vision model, ~5GB VRAM
+PRIMARY_MODEL  = "qwen2.5vl:32b"   # Qwen2.5-VL 32B — best available visual reasoning
+FALLBACK_MODEL = "qwen2.5vl:7b"   # fallback if 32B OOMs
 
 
 def free_vram_gb() -> float:

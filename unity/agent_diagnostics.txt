@@ -1,0 +1,6 @@
+Total renderers: 14
+OBJ=SKM_model4_FaceMesh | ENABLED=True | ACTIVE=True | TYPE=MeshRenderer | MATS=[MI_Face_Skin_Baked_LOD1_VT|M_Hide|MI_Face_LacrimalFluid|MI_EyeR_Baked|MI_EyeL_Baked|MI_Face_EyeShell|M_Hide_6|MI_Teeth_Baked|MI_Face_EyelashesHiLODs|]
+OBJ=SKM_model4_BodyMesh | ENABLED=True | ACTIVE=True | TYPE=SkinnedMeshRenderer | MATS=[MI_Body_Baked_VT 1|]
+OBJ=model4_Outfits | ENABLED=True | ACTIVE=True | TYPE=SkinnedMeshRenderer | MATS=[MID_M_DG_bodyShapeB_Shirt_70|MID_M_DG_bodyShapeB_Short_71|]
+OBJ=Hair_M_BobMessy_CardsMesh_Group0_LOD0 | ENABLED=True | ACTIVE=True | TYPE=MeshRenderer | MATS=[haircut|haircut|haircut|haircut|haircut|haircut|haircut|haircut|haircut|]
+OBJ=Eyebrows_M_Natural_CardsMesh_Group0_LOD0 | ENABLED=False | ACTIVE=False | TYPE=MeshRenderer | MATS=[Eyebrows|]

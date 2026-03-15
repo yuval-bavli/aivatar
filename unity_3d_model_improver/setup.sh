@@ -8,10 +8,11 @@
 #   4. Installs Python dependencies
 #
 # GPU requirement:
-#   Primary model  : qwen3-vl:8b  (~6 GB VRAM)  — NVIDIA GPU strongly recommended
+#   Primary model  : qwen3-vl:8b  (~6 GB VRAM)  — used for standard audits
 #   Fallback model : qwen2.5vl:7b (~5 GB VRAM)  — used automatically on OOM
+#   Upgraded model : qwen2.5vl:32b (~20 GB VRAM) — used by Approach 3 (optional, needs 24GB+ GPU)
 #   Minimum GPU    : 8 GB VRAM (e.g. RTX 3070 / 4060 Ti)
-#   Recommended    : 12 GB VRAM (e.g. RTX 4070 Ti) for comfortable headroom
+#   Recommended    : 24 GB VRAM (e.g. RTX 4090) for upgraded model
 #
 #   CPU-only is possible but inference will be very slow (~10–30× slower).
 #   Ollama manages VRAM automatically — no manual configuration needed.
@@ -25,6 +26,7 @@ MODELS_DIR="$SCRIPT_DIR/ai_models"
 
 PRIMARY_MODEL="qwen3-vl:8b"
 FALLBACK_MODEL="qwen2.5vl:7b"
+UPGRADED_MODEL="qwen2.5vl:32b"
 
 echo "========================================"
 echo "  Aivatar 3D Model Improver — Setup"
@@ -103,6 +105,7 @@ echo ""
 echo "[3/4] Pulling AI vision models …"
 echo "  Primary : $PRIMARY_MODEL  (~6 GB download, ~6 GB VRAM)"
 echo "  Fallback: $FALLBACK_MODEL (~5 GB download, ~5 GB VRAM)"
+echo "  Upgraded: $UPGRADED_MODEL (~20 GB download, ~20 GB VRAM) — for Approach 3"
 echo "  Models are stored in Ollama's default location."
 echo "  Note: qwen3-vl requires 'think: False' in API calls to suppress"
 echo "        chain-of-thought output — audit.py handles this automatically."
@@ -125,6 +128,7 @@ pull_model() {
 
 pull_model "$PRIMARY_MODEL"
 pull_model "$FALLBACK_MODEL"
+pull_model "$UPGRADED_MODEL"
 
 # ── Step 3: Python venv ────────────────────────────────────────────────────
 echo ""
@@ -160,7 +164,7 @@ echo "  Setup complete!"
 echo "========================================"
 echo ""
 echo "Installed models:"
-ollama list 2>/dev/null | grep -E "^(qwen3-vl|qwen2\.5vl)" || echo "  (none yet — pull may still be in progress)"
+ollama list 2>/dev/null | grep -E "^(qwen3-vl|qwen2\.?5vl)" || echo "  (none yet — pull may still be in progress)"
 echo ""
 echo "To run the audit (Claude drives the improvement loop):"
 echo "  1. Open Unity with the avatar scene"
@@ -172,11 +176,20 @@ else
 fi
 echo "  4. python audit.py"
 echo ""
-echo "Optional flags:"
-echo "  --ref /path/to/reference.png   Override reference photo (default: 3d_model_desired.png)"
+echo "Approaches (tried sequentially by the 3d-model-improver skill):"
+echo "  1. C# Material Fixer (deterministic) — python metahuman_fixer.py"
+echo "  2. Texture Surgery (Pillow)          — python texture_editor.py fix-all"
+echo "  3. Upgraded AI (qwen2.5-vl:32b)      — python audit.py --mode upgraded"
+echo ""
+echo "Optional flags for audit.py:"
+echo "  --ref /path/to/reference.png   Override reference photo"
+echo "  --mode upgraded                Use 32B model + material context"
+echo "  --with-materials               Include material properties (standard mode)"
+echo "  --compare FIRST LAST           Compare two screenshots for progress"
 echo ""
 echo "Troubleshooting:"
 echo "  - 'Cannot connect to Ollama' → run: ollama serve"
 echo "  - OOM on qwen3-vl:8b → script auto-falls back to qwen2.5vl:7b"
+echo "  - OOM on qwen2.5vl:32b → need 24GB+ VRAM GPU, or use standard mode"
 echo "  - Empty model response → ensure think:False is set (already in audit.py)"
 echo ""
