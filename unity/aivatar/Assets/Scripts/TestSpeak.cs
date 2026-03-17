@@ -5,9 +5,7 @@ public class TestSpeak : MonoBehaviour
     public AzureSpeechManager speechManager;
 
     [TextArea(2, 6)]
-    public string testText = "Hello! This is a multi-sentence test. " +
-                             "Notice the short pause between sentences? " +
-                             "The viseme timeline should fire across all three.";
+    public string testText = "Hello, I am Shmontzka";
 
     void Start()
     {

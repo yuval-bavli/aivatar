@@ -2,7 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 
-public static class WireModel2
+public static class WireModel4
 {
     // Azure viseme ID → blendshape name (matches both AvatarHead and AvatarTeethLower)
     private static readonly (int id, string name)[] VISEME_MAP =
@@ -11,6 +11,210 @@ public static class WireModel2
         ( 5, "kk"),  ( 6, "CH"),  ( 7, "SS"),  ( 8, "nn"),  ( 9, "RR"),
         (10, "aa"),  (11, "E"),   (12, "ih"),  (13, "oh"),  (14, "ou"),
     };
+
+    [MenuItem("Aivatar/Test Jaw Rotation")]
+    public static string TestJawRotation()
+    {
+        // Find FaceMesh2 SMR and check its bones list for FACIAL_C_Jaw
+        var smrs = Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"SMRs in scene: {smrs.Length}");
+        foreach (var smr in smrs)
+        {
+            bool hasJaw = false;
+            foreach (var b in smr.bones) if (b != null && b.name.Contains("Jaw")) { hasJaw = true; break; }
+            sb.AppendLine($"  '{smr.name}'  bones={smr.bones.Length}  hasJawBone={hasJaw}");
+            if (hasJaw)
+            {
+                foreach (var b in smr.bones)
+                {
+                    if (b == null || !b.name.Contains("Jaw")) continue;
+                    // Force-rotate the jaw 30 degrees
+                    b.localRotation = b.localRotation * Quaternion.Euler(30, 0, 0);
+                    sb.AppendLine($"  -> Rotated '{b.name}' by 30° on X");
+                }
+            }
+        }
+
+        // Also check via GameObject.Find
+        var jawGO = GameObject.Find("FACIAL_C_Jaw");
+        if (jawGO != null)
+        {
+            jawGO.transform.localRotation = jawGO.transform.localRotation * Quaternion.Euler(30, 0, 0);
+            sb.AppendLine($"Also rotated GameObject.Find('FACIAL_C_Jaw') by 30° on X");
+        }
+        else sb.AppendLine("GameObject.Find('FACIAL_C_Jaw') = null");
+
+        string result = sb.ToString();
+        Debug.Log(result);
+        return result;
+    }
+
+    [MenuItem("Aivatar/Align FaceMesh2 to Original")]
+    public static string AlignFaceMesh2()
+    {
+        // Find the face SMR with the most bones (FaceMesh2)
+        SkinnedMeshRenderer faceSMR = null;
+        int maxBones = 0;
+        foreach (var smr in Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (smr.bones.Length > maxBones) { maxBones = smr.bones.Length; faceSMR = smr; }
+
+        if (faceSMR == null) return "FaceMesh2 SMR not found";
+
+        // Walk all the way up to the scene root (parent == null)
+        Transform faceRoot = faceSMR.transform;
+        while (faceRoot.parent != null) faceRoot = faceRoot.parent;
+
+        // Find the original static face scene root (top-level, named FaceMesh, different object)
+        Transform originalRoot = null;
+        foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (go.transform.parent != null) continue;           // top-level only
+            if (go.transform == faceRoot) continue;              // not FaceMesh2 itself
+            if (go.name.ToLower().Contains("facemesh")) { originalRoot = go.transform; break; }
+        }
+
+        if (originalRoot == null)
+            return $"Could not find original FaceMesh root. FaceMesh2 root = '{faceRoot.name}'";
+
+        string before = $"pos={faceRoot.position} rot={faceRoot.eulerAngles}";
+        Undo.RecordObject(faceRoot, "Align FaceMesh2");
+        faceRoot.position   = originalRoot.position;
+        faceRoot.rotation   = originalRoot.rotation;
+        faceRoot.localScale = originalRoot.localScale;
+        EditorUtility.SetDirty(faceRoot);
+
+        return $"Moved '{faceRoot.name}' to match '{originalRoot.name}' pos={originalRoot.position}  (was {before})";
+    }
+
+    [MenuItem("Aivatar/Diagnose BoneLipSync")]
+    public static string DiagnoseBoneLipSync()
+    {
+        var avatarGO = GameObject.Find("Avatar");
+        if (avatarGO == null) return "Avatar not found";
+
+        var bls = avatarGO.GetComponent<BoneLipSync>();
+        if (bls == null) return "BoneLipSync not on Avatar";
+
+        var speech = avatarGO.GetComponent<AzureSpeechManager>();
+
+        return $"BoneLipSync: jaw={bls.jawBone?.name ?? "NULL"}" +
+               $" lowerLip={bls.lowerLipBone?.name ?? "NULL"}" +
+               $" cornerL={bls.lipCornerL?.name ?? "NULL"}" +
+               $" cornerR={bls.lipCornerR?.name ?? "NULL"}" +
+               $" | AzureSpeechManager.lipSyncController={(speech?.lipSyncController?.GetType().Name ?? "NULL")}";
+    }
+
+    [MenuItem("Aivatar/List Face Bones")]
+    public static string ListFaceBones()
+    {
+        var sb = new System.Text.StringBuilder();
+
+        // Dump all bones from every SMR in scene
+        var smrs = Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var smr in smrs)
+        {
+            sb.AppendLine($"\nBones on '{smr.name}' ({smr.bones.Length}):");
+            foreach (var b in smr.bones)
+                if (b != null) sb.AppendLine($"  {b.name}");
+        }
+
+        // Also search the entire scene transform hierarchy for jaw/mouth/lip related bones
+        sb.AppendLine("\nScene transforms containing 'jaw','mouth','lip','chin' (case-insensitive):");
+        foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            string lower = go.name.ToLower();
+            if (lower.Contains("jaw") || lower.Contains("mouth") || lower.Contains("lip") || lower.Contains("chin"))
+                sb.AppendLine($"  {go.name}");
+        }
+
+        string result = sb.ToString();
+        Debug.Log(result);
+        return result;
+    }
+
+    [MenuItem("Aivatar/List SMRs in Scene")]
+    public static string ListSMRs()
+    {
+        var sb = new System.Text.StringBuilder();
+
+        // All SMRs in scene
+        var allSMRs = Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        sb.AppendLine($"Scene SMRs ({allSMRs.Length}):");
+        foreach (var s in allSMRs)
+            sb.AppendLine($"  '{s.name}'  bs={s.sharedMesh?.blendShapeCount ?? -1}");
+
+        // Inspect sub-assets of both FBX files directly
+        string[] fbxPaths = {
+            "Assets/Models/Avatar/SKM_model4_FaceMesh.FBX",
+            "Assets/Models/Avatar/SKM_model4_FaceMesh2.FBX",
+        };
+        foreach (string fbx in fbxPaths)
+        {
+            sb.AppendLine($"\nSub-asset meshes in {System.IO.Path.GetFileName(fbx)}:");
+            int count = 0;
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(fbx))
+            {
+                if (asset is Mesh m)
+                {
+                    sb.AppendLine($"  '{m.name}'  bs={m.blendShapeCount}");
+                    count++;
+                }
+            }
+            if (count == 0) sb.AppendLine("  (no Mesh sub-assets found — FBX may not be imported yet)");
+        }
+
+        string result = sb.ToString();
+        Debug.Log("[WireModel4] " + result);
+        return result;
+    }
+
+    [MenuItem("Aivatar/Wire Model4 (Bones)")]
+    public static void WireBones()
+    {
+        var avatarGO = GameObject.Find("Avatar");
+        if (avatarGO == null) { Debug.LogError("'Avatar' not found. Run Setup Avatar Scene first."); return; }
+
+        // Remove old blendshape-based component if present, add BoneLipSync
+        var oldLipSync = avatarGO.GetComponent<ProLipSync>();
+        if (oldLipSync != null) Undo.DestroyObjectImmediate(oldLipSync);
+
+        var boneLipSync = avatarGO.GetComponent<BoneLipSync>();
+        if (boneLipSync == null)
+            boneLipSync = Undo.AddComponent<BoneLipSync>(avatarGO);
+
+        // Point AzureSpeechManager at the new controller
+        var speech = avatarGO.GetComponent<AzureSpeechManager>();
+        if (speech != null)
+        {
+            Undo.RecordObject(speech, "Wire BoneLipSync");
+            speech.lipSyncController = boneLipSync;
+            EditorUtility.SetDirty(speech);
+        }
+
+        // Search the entire scene hierarchy for facial bones (face mesh is a MeshRenderer, not SMR)
+        boneLipSync.jawBone      = FindSceneBone("FACIAL_C_Jaw") ?? FindSceneBone("FACIAL_C_Jawline");
+        boneLipSync.lowerLipBone = FindSceneBone("FACIAL_C_LowerLipRotation") ?? FindSceneBone("FACIAL_C_MouthLower");
+        boneLipSync.lipCornerL   = FindSceneBone("FACIAL_L_LipCorner");
+        boneLipSync.lipCornerR   = FindSceneBone("FACIAL_R_LipCorner");
+
+        Undo.RecordObject(boneLipSync, "Wire BoneLipSync");
+        EditorUtility.SetDirty(boneLipSync);
+
+        string report = $"[WireBones] jaw={boneLipSync.jawBone?.name ?? "NOT FOUND"}" +
+                        $"  lowerLip={boneLipSync.lowerLipBone?.name ?? "NOT FOUND"}" +
+                        $"  cornerL={boneLipSync.lipCornerL?.name ?? "NOT FOUND"}" +
+                        $"  cornerR={boneLipSync.lipCornerR?.name ?? "NOT FOUND"}";
+        Debug.Log(report);
+        Selection.activeGameObject = avatarGO;
+    }
+
+    private static Transform FindSceneBone(string boneName)
+    {
+        var go = GameObject.Find(boneName);
+        return go != null ? go.transform : null;
+    }
+
 
     [MenuItem("Aivatar/Wire Model4 to Avatar")]
     public static void Wire()
@@ -21,13 +225,9 @@ public static class WireModel2
         var lipSync = avatarGO.GetComponent<ProLipSync>();
         if (lipSync == null) { Debug.LogError("ProLipSync not found on Avatar."); return; }
 
-        // 2. Find model4 in scene (top-level or child)
-        var model4GO = GameObject.Find("model4");
-        if (model4GO == null) { Debug.LogError("'model4' not found in scene. Drag model4_embedded into the Hierarchy first."); return; }
-
-        // 3. Get AvatarHead — has all 15 viseme blendshapes
-        var head = FindSMR(model4GO, "AvatarHead");
-        if (head == null) { Debug.LogError("SkinnedMeshRenderer 'AvatarHead' not found under model4."); return; }
+        // 2. Find the face mesh SMR anywhere in the scene by name
+        var head = FindSMRInScene("SKM_model4_FaceMesh");
+        if (head == null) { Debug.LogError("SkinnedMeshRenderer 'SKM_model4_FaceMesh' not found in scene. Make sure the model is in the Hierarchy."); return; }
 
         // 4. Create VisemeMapping asset
         string assetPath = "Assets/Model4VisemeMapping.asset";
@@ -56,11 +256,22 @@ public static class WireModel2
         Selection.activeGameObject = avatarGO;
     }
 
-    private static SkinnedMeshRenderer FindSMR(GameObject root, string name)
+    private static SkinnedMeshRenderer FindSMRInScene(string name)
     {
-        foreach (var smr in root.GetComponentsInChildren<SkinnedMeshRenderer>())
-            if (smr.name == name) return smr;
-        return null;
+        var all = Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Debug.Log($"[WireModel4] Found {all.Length} SkinnedMeshRenderers in scene:");
+        foreach (var smr in all)
+            Debug.Log($"  - '{smr.name}'  blendShapes={smr.sharedMesh?.blendShapeCount ?? -1}");
+
+        SkinnedMeshRenderer fallback = null;
+        foreach (var smr in all)
+        {
+            if (smr.name != name) continue;
+            if (smr.sharedMesh != null && smr.sharedMesh.blendShapeCount > 0)
+                return smr;
+            fallback = smr;
+        }
+        return fallback;
     }
 }
 #endif

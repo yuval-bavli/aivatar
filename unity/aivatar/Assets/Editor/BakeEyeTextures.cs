@@ -23,7 +23,7 @@ public class BakeEyeTextures
     static readonly float PupilShrinkRadius = 0.06f;
 
     [MenuItem("Aivatar/Bake Eye Textures")]
-    static void Bake()
+    public static string Bake()
     {
         BakeEye(
             "T_EyeScleraR_BC", "T_EyeIrisR_BC",
@@ -41,7 +41,9 @@ public class BakeEyeTextures
         SetupEyeShell();
 
         AssetDatabase.Refresh();
-        Debug.Log("Eye textures baked and materials assigned!");
+        string msg = "Eye textures baked and materials assigned!";
+        Debug.Log(msg);
+        return msg;
     }
 
     static void BakeEye(
@@ -61,12 +63,7 @@ public class BakeEyeTextures
             return;
         }
 
-        // Build a mask from the iris texture content itself:
-        // sample the edge to find the flat background color, then any pixel
-        // that differs from it is part of the actual iris/pupil.
         float[] mask = BuildContentMask(iris);
-
-        // Shrink the pupil by replacing dark edge pixels with nearby iris color
         iris = ShrinkPupil(iris);
 
         var bakedColor = CompositeWithMask(sclera, iris, mask, true);
@@ -121,11 +118,6 @@ public class BakeEyeTextures
         Debug.Log($"Baked and assigned textures for {materialName}");
     }
 
-    /// <summary>
-    /// Builds a per-pixel mask by detecting which pixels differ from the
-    /// flat background color of the iris texture. The background is sampled
-    /// from the texture edges. Returns values 0..1 per pixel.
-    /// </summary>
     static float[] BuildContentMask(Texture2D tex)
     {
         int w = tex.width;
@@ -133,33 +125,25 @@ public class BakeEyeTextures
         Color[] pixels = tex.GetPixels();
         float[] mask = new float[pixels.Length];
 
-        // Sample edge pixels to determine the flat background color
         Color bgSum = Color.black;
         int count = 0;
         for (int i = 0; i < EdgeSamples; i++)
         {
-            // Top edge
             bgSum += pixels[i * (w / EdgeSamples)];
-            // Bottom edge
             bgSum += pixels[(h - 1) * w + i * (w / EdgeSamples)];
-            // Left edge
             bgSum += pixels[i * (h / EdgeSamples) * w];
-            // Right edge
             bgSum += pixels[i * (h / EdgeSamples) * w + (w - 1)];
             count += 4;
         }
         Color bgColor = bgSum / count;
         Debug.Log($"Detected iris background color: R={bgColor.r:F3} G={bgColor.g:F3} B={bgColor.b:F3}");
 
-        // For each pixel, compute how different it is from the background
         for (int i = 0; i < pixels.Length; i++)
         {
             float dr = pixels[i].r - bgColor.r;
             float dg = pixels[i].g - bgColor.g;
             float db = pixels[i].b - bgColor.b;
             float diff = Mathf.Sqrt(dr * dr + dg * dg + db * db);
-
-            // Sharp mask: anything clearly different from background is iris
             mask[i] = Mathf.Clamp01((diff - MaskThreshold) / 0.05f);
         }
 
@@ -184,7 +168,6 @@ public class BakeEyeTextures
             {
                 int idx = py * w + px;
 
-                // Get the iris pixel and its mask value
                 Color irisCol;
                 float m;
                 if (sameSize)
@@ -215,18 +198,14 @@ public class BakeEyeTextures
 
                         if (lum < PupilThreshold)
                         {
-                            // Deep pupil — keep very dark
                             irisCol = new Color(0.01f, 0.01f, 0.01f, 1f);
                         }
                         else
                         {
-                            // Brighten preserving relative channel differences
                             float r = irisCol.r * IrisBrightness;
                             float g = irisCol.g * IrisBrightness;
                             float b = irisCol.b * IrisBrightness;
 
-                            // Soft tint: blend original brightened color with tint
-                            // Lower blend = more natural, more texture detail
                             irisCol = new Color(
                                 Mathf.Lerp(r, r * IrisTint.r * 1.8f, 0.5f),
                                 Mathf.Lerp(g, g * IrisTint.g * 1.8f, 0.5f),
@@ -234,8 +213,6 @@ public class BakeEyeTextures
                                 1f
                             );
 
-                            // Add a subtle limbal darkening near the iris edge
-                            // (mask values near 0 = edge of iris)
                             float edgeDarken = Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(m * 2f));
                             irisCol *= edgeDarken;
 
@@ -256,10 +233,6 @@ public class BakeEyeTextures
         return result;
     }
 
-    /// <summary>
-    /// Shrinks the pupil by finding the pupil boundary and replacing dark
-    /// edge pixels with sampled iris color from further out.
-    /// </summary>
     static Texture2D ShrinkPupil(Texture2D iris)
     {
         int w = iris.width;
@@ -271,8 +244,6 @@ public class BakeEyeTextures
         float cy = h * 0.5f;
         float shrinkPx = PupilShrinkRadius * w;
 
-        // Find the pupil radius: scan outward from center to find where
-        // pixels stop being dark
         float pupilRadiusPx = 0;
         for (int r = 0; r < w / 2; r++)
         {
@@ -287,7 +258,7 @@ public class BakeEyeTextures
             }
         }
 
-        if (pupilRadiusPx < 5) return iris; // no pupil found
+        if (pupilRadiusPx < 5) return iris;
 
         float newPupilRadius = pupilRadiusPx - shrinkPx;
         if (newPupilRadius < 3) newPupilRadius = 3;
@@ -295,8 +266,6 @@ public class BakeEyeTextures
         Debug.Log($"Pupil shrink: original radius={pupilRadiusPx:F0}px, " +
             $"new={newPupilRadius:F0}px, shrink={shrinkPx:F0}px");
 
-        // For each pixel in the pupil shrink zone, sample iris color from
-        // the same angle but at the original pupil edge + offset
         for (int py = 0; py < h; py++)
         {
             for (int px = 0; px < w; px++)
@@ -307,14 +276,12 @@ public class BakeEyeTextures
 
                 if (dist >= newPupilRadius && dist < pupilRadiusPx + 2)
                 {
-                    // This pixel is in the shrink zone — sample iris from further out
                     float angle = Mathf.Atan2(dy, dx);
                     float sampleDist = pupilRadiusPx + shrinkPx * 0.5f;
                     int sx = Mathf.Clamp((int)(cx + Mathf.Cos(angle) * sampleDist), 0, w - 1);
                     int sy = Mathf.Clamp((int)(cy + Mathf.Sin(angle) * sampleDist), 0, h - 1);
                     Color irisColor = pixels[sy * w + sx];
 
-                    // Smooth transition from pupil to iris
                     float t = Mathf.Clamp01((dist - newPupilRadius) / (pupilRadiusPx - newPupilRadius));
                     output[py * w + px] = Color.Lerp(pixels[py * w + px], irisColor, t);
                 }
@@ -361,16 +328,14 @@ public class BakeEyeTextures
         var mat = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath + "MI_Face_EyeShell.mat");
         if (mat == null) return;
 
-        // Corneal wet-look overlay: mostly transparent but with strong specular
-        // This creates the glossy reflection that makes eyes look alive
         mat.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.04f));
         mat.SetColor("_Color", new Color(1f, 1f, 1f, 0.04f));
         mat.SetFloat("_Smoothness", 0.98f);
         mat.SetFloat("_Metallic", 0f);
         mat.SetFloat("_SpecularHighlights", 1f);
         mat.SetFloat("_EnvironmentReflections", 1f);
-        mat.SetFloat("_Surface", 1f); // Transparent
-        mat.SetFloat("_Blend", 0f);   // Alpha
+        mat.SetFloat("_Surface", 1f);
+        mat.SetFloat("_Blend", 0f);
         mat.SetFloat("_SrcBlend", 1f);
         mat.SetFloat("_DstBlend", 10f);
         mat.SetFloat("_ZWrite", 0f);

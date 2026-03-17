@@ -13,7 +13,7 @@ public class AzureSpeechManager : MonoBehaviour
     public string voiceName = "en-US-JennyNeural";
 
     [Header("References")]
-    public ProLipSync lipSyncController;
+    public LipSyncBase lipSyncController;
 
     [Header("Settings")]
     [Range(0, 800)] public float pauseBetweenSentencesMs = 400f;

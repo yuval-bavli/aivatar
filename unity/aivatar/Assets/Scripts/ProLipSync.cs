@@ -2,7 +2,7 @@ using UnityEngine;
 using System;
 
 [RequireComponent(typeof(AudioSource))]
-public class ProLipSync : MonoBehaviour
+public class ProLipSync : LipSyncBase
 {
     [Header("Core References")]
     public SkinnedMeshRenderer faceMesh;
@@ -51,7 +51,7 @@ public class ProLipSync : MonoBehaviour
         }
     }
 
-    public void Play(VisemeTimeline timeline, AudioClip clip)
+    public override void Play(VisemeTimeline timeline, AudioClip clip)
     {
         activeTimeline = timeline;
         lastVisemeIndex = 0;
