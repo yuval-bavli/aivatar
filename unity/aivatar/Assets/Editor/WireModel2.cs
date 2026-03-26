@@ -105,6 +105,27 @@ public static class WireModel4
                $" | AzureSpeechManager.lipSyncController={(speech?.lipSyncController?.GetType().Name ?? "NULL")}";
     }
 
+    [MenuItem("Aivatar/Diagnose MeshLipSync")]
+    public static string DiagnoseMeshLipSync()
+    {
+        var avatarGO = GameObject.Find("Avatar");
+        if (avatarGO == null) return "Avatar not found";
+
+        var mls = avatarGO.GetComponent<MeshLipSync>();
+        if (mls == null) return "MeshLipSync not on Avatar";
+
+        var speech = avatarGO.GetComponent<AzureSpeechManager>();
+
+        string visemeInfo = "NULL";
+        if (mls.visemeMesh != null)
+            visemeInfo = $"'{mls.visemeMesh.name}' bs={mls.visemeMesh.blendShapeCount} verts={mls.visemeMesh.vertexCount}";
+
+        return $"MeshLipSync:" +
+               $"\n  faceMeshFilter={mls.faceMeshFilter?.name ?? "NULL"}" +
+               $"\n  visemeMesh={visemeInfo}" +
+               $"\n  AzureSpeech.lipSync={speech?.lipSyncController?.GetType().Name ?? "NULL"}";
+    }
+
     [MenuItem("Aivatar/List Face Bones")]
     public static string ListFaceBones()
     {
@@ -192,11 +213,22 @@ public static class WireModel4
             EditorUtility.SetDirty(speech);
         }
 
-        // Search the entire scene hierarchy for facial bones (face mesh is a MeshRenderer, not SMR)
-        boneLipSync.jawBone      = FindSceneBone("FACIAL_C_Jaw") ?? FindSceneBone("FACIAL_C_Jawline");
-        boneLipSync.lowerLipBone = FindSceneBone("FACIAL_C_LowerLipRotation") ?? FindSceneBone("FACIAL_C_MouthLower");
-        boneLipSync.lipCornerL   = FindSceneBone("FACIAL_L_LipCorner");
-        boneLipSync.lipCornerR   = FindSceneBone("FACIAL_R_LipCorner");
+        // Find the skinned face SMR (the one with the most bones — the full facial rig)
+        SkinnedMeshRenderer faceSMR = null;
+        int maxBones = 0;
+        foreach (var smr in Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (smr.bones.Length > maxBones) { maxBones = smr.bones.Length; faceSMR = smr; }
+        }
+
+        if (faceSMR == null) { Debug.LogError("[WireBones] No SkinnedMeshRenderer found in scene."); return; }
+        Debug.Log($"[WireBones] Using bones from '{faceSMR.name}' ({faceSMR.bones.Length} bones)");
+
+        // Look up bones by name from the SMR's own bone array (avoids finding duplicates from other hierarchies)
+        boneLipSync.jawBone      = FindBoneInSMR(faceSMR, "FACIAL_C_Jaw");
+        boneLipSync.lowerLipBone = FindBoneInSMR(faceSMR, "FACIAL_C_LowerLipRotation");
+        boneLipSync.lipCornerL   = FindBoneInSMR(faceSMR, "FACIAL_L_LipCorner");
+        boneLipSync.lipCornerR   = FindBoneInSMR(faceSMR, "FACIAL_R_LipCorner");
 
         Undo.RecordObject(boneLipSync, "Wire BoneLipSync");
         EditorUtility.SetDirty(boneLipSync);
@@ -209,10 +241,11 @@ public static class WireModel4
         Selection.activeGameObject = avatarGO;
     }
 
-    private static Transform FindSceneBone(string boneName)
+    private static Transform FindBoneInSMR(SkinnedMeshRenderer smr, string boneName)
     {
-        var go = GameObject.Find(boneName);
-        return go != null ? go.transform : null;
+        foreach (var b in smr.bones)
+            if (b != null && b.name == boneName) return b;
+        return null;
     }
 
 

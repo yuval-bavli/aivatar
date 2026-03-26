@@ -49,7 +49,10 @@
       "Bash(rm -f \"unity/aivatar/agent_result.txt\" && echo \"execute*)",
       "Bash(bash unity/aivatar/agent.sh*)",
       "Bash(bash unity/aivatar/clear_agent.sh*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:dev.epicgames.com)",
+      "WebFetch(domain:forums.unrealengine.com)",
+      "WebFetch(domain:dev.to)"
     ]
   }
 }
