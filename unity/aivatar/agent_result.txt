@@ -1,5 +1,1 @@
-Clip: 'Unreal Take' fps=30 length=5.03s
-Root: 'viseme_animation'
-Reset to rest pose
-Wired AzureSpeechManager.lipSyncController
-Done! AnimClipLipSync ready on Avatar.
+ready
