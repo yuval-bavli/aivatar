@@ -1,16 +1,1 @@
-Sequence: FaceExport
-World: Lvl_ThirdPerson
-Binding: Face
-  Track: Face_ControlBoard_CtrlRig
-Binding: BP_model4
-Binding: Body
-  Track: MetaHuman_ControlRig
-
-Exporting to: c:/Users/yuval/src/aivatar/viseme_animation.fbx
-Bindings: 3
-Tracks: 1
-Export result: True
-
---- Alternative: Bake to AnimSequence ---
-Found existing AnimSequence: VisemeAnimation
-AnimSequence export result: True
+Export: True
