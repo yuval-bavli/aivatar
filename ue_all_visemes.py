@@ -57,7 +57,7 @@ for i, (frame, name) in enumerate(frames):
     col = i % cols
     row = i // cols
     grid.paste(cell, (col * cell_w, row * cell_h))
-
+ 
 grid.save("c:/Users/yuval/src/aivatar/ue_all_visemes.png")
 print(f"Saved: {grid.size}")
 
