@@ -1,6 +1,6 @@
 # Lip Sync — Investigation & State of Play
 
-**Last updated: 2026-04-14 (Automated optimizer — see Attempt 9).**
+**Last updated: 2026-04-14 (Automated optimizer — see Attempt 9). Visual result: significant improvement confirmed by user.**
 
 > **Attempt 8 update**: Fixed two remaining bugs causing post-audio
 > mouth motion and a lingering "stuck viseme" on the last phoneme before
@@ -104,6 +104,8 @@ After 5 iterations on a single phrase, the optimizer converged:
 | scheduling score | 26.2 | 39.2 |
 
 Score progression: **26.2 → 27.6 → 33.4 → 37.9 → 39.2 → 39.2** (stable).
+
+**Visual result (2026-04-14): user confirmed significant improvement** after applying the optimized `lipsync_params.json` (`time_scale=0.693`, `global_offset_ms=67.0`). This is the first iteration where the timing correction produced a noticeable perceptual improvement.
 
 **Score ceiling without Unity**: ~40/100. This is expected — audio RMS and
 viseme mouth-openness are imperfectly correlated even with perfect timing
