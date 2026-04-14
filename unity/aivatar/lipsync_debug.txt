@@ -1,0 +1,30 @@
+Play() called: clip.length=5.30s samples=84864 sr=16000 audioIsPlaying=True audioTime=0.000
+Play() called: clip.length=5.30s samples=84864 sr=16000 audioIsPlaying=True audioTime=0.000
+Play() called: clip.length=5.30s samples=84864 sr=16000 audioIsPlaying=True audioTime=0.000
+Play() called: clip.length=5.30s samples=84864 sr=16000 audioIsPlaying=True audioTime=0.000
+PRE-Update frame=1 t=0.000s elapsedMs=56
+PRE-SmoothApply frame=1
+[1] t=0.00s topV=13(w=0.05) jaw=40.0,0.0
+POST-SmoothApply frame=1
+PRE-Update frame=2 t=0.021s elapsedMs=77
+PRE-SmoothApply frame=2
+POST-SmoothApply frame=2
+PRE-Update frame=3 t=0.064s elapsedMs=120
+PRE-SmoothApply frame=3
+POST-SmoothApply frame=3
+PRE-Update frame=4 t=0.107s elapsedMs=163
+PRE-SmoothApply frame=4
+POST-SmoothApply frame=4
+PRE-Update frame=5 t=0.107s elapsedMs=163
+PRE-SmoothApply frame=5
+POST-SmoothApply frame=5
+[2] t=0.49s topV=0(w=0.82) jaw=41.4,360.0
+[3] t=0.98s topV=10(w=0.88) jaw=50.5,359.8
+[4] t=1.49s topV=12(w=0.73) jaw=43.4,359.9
+[5] t=2.01s topV=0(w=0.95) jaw=40.2,0.0
+[6] t=2.52s topV=2(w=0.46) jaw=44.5,359.9
+[7] t=3.01s topV=0(w=0.80) jaw=41.1,360.0
+[8] t=3.52s topV=10(w=0.68) jaw=49.5,359.8
+[9] t=4.03s topV=12(w=0.58) jaw=43.2,360.0
+[10] t=4.54s topV=12(w=0.58) jaw=43.2,360.0
+[11] t=5.06s topV=4(w=0.62) jaw=44.3,359.9

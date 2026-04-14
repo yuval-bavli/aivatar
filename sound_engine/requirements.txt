@@ -1,0 +1,5 @@
+edge-tts>=6.1.9          # Free TTS using Microsoft Edge voices; yields word-boundary ticks
+nltk>=3.8.1              # CMU Pronouncing Dictionary for ARPABET phonemes
+requests>=2.31.0         # ElevenLabs REST API
+python-dotenv>=1.0.0     # Reads ELEVENLABS_API_KEY from repo-root .env
+pydub>=0.25.1            # MP3->WAV conversion (requires ffmpeg on PATH)

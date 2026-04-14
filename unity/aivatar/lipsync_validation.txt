@@ -1,0 +1,47 @@
+=== LIP SYNC VALIDATION REPORT ===
+Finish reason: COMPLETE
+Audio started: True
+Clip length: 2.184s
+
+[0.24s] AUDIO STARTED clip=2.184s
+[0.24s] playing=True audioMs=21 wallMs=45 frame=2 topViseme=0 topWeight=0.231 isLipSyncPlaying=True lastIdx=0 visemeCount=15
+[0.34s] playing=True audioMs=128 wallMs=146 frame=9 topViseme=3 topWeight=0.819 isLipSyncPlaying=True lastIdx=1 visemeCount=15
+[0.45s] playing=True audioMs=235 wallMs=254 frame=18 topViseme=10 topWeight=0.784 isLipSyncPlaying=True lastIdx=2 visemeCount=15
+[0.55s] playing=True audioMs=341 wallMs=355 frame=30 topViseme=10 topWeight=0.781 isLipSyncPlaying=True lastIdx=2 visemeCount=15
+[0.65s] playing=True audioMs=448 wallMs=462 frame=45 topViseme=8 topWeight=0.790 isLipSyncPlaying=True lastIdx=2 visemeCount=15
+[0.77s] playing=True audioMs=555 wallMs=576 frame=59 topViseme=8 topWeight=0.649 isLipSyncPlaying=True lastIdx=3 visemeCount=15
+[0.87s] playing=True audioMs=661 wallMs=682 frame=74 topViseme=5 topWeight=0.724 isLipSyncPlaying=True lastIdx=4 visemeCount=15
+[0.98s] playing=True audioMs=768 wallMs=788 frame=87 topViseme=12 topWeight=0.766 isLipSyncPlaying=True lastIdx=5 visemeCount=15
+[1.09s] playing=True audioMs=875 wallMs=894 frame=102 topViseme=14 topWeight=0.871 isLipSyncPlaying=True lastIdx=6 visemeCount=15
+  SCREENSHOT (mid_playback): C:/Users/yuval/src/aivatar/unity/aivatar/Assets\Screenshots\validate_mid_playback_2026-04-13T22-03-35.png
+[1.19s] playing=True audioMs=1003 wallMs=998 frame=113 topViseme=2 topWeight=0.642 isLipSyncPlaying=True lastIdx=6 visemeCount=15
+[1.30s] playing=True audioMs=1088 wallMs=1104 frame=128 topViseme=2 topWeight=0.796 isLipSyncPlaying=True lastIdx=7 visemeCount=15
+[1.40s] playing=True audioMs=1173 wallMs=1204 frame=140 topViseme=11 topWeight=0.930 isLipSyncPlaying=True lastIdx=8 visemeCount=15
+[1.50s] playing=True audioMs=1280 wallMs=1310 frame=155 topViseme=11 topWeight=0.597 isLipSyncPlaying=True lastIdx=8 visemeCount=15
+[1.61s] playing=True audioMs=1408 wallMs=1416 frame=168 topViseme=9 topWeight=0.857 isLipSyncPlaying=True lastIdx=9 visemeCount=15
+[1.71s] playing=True audioMs=1493 wallMs=1523 frame=183 topViseme=12 topWeight=0.939 isLipSyncPlaying=True lastIdx=10 visemeCount=15
+[1.82s] playing=True audioMs=1621 wallMs=1629 frame=196 topViseme=12 topWeight=0.526 isLipSyncPlaying=True lastIdx=10 visemeCount=15
+[1.93s] playing=True audioMs=1728 wallMs=1736 frame=211 topViseme=1 topWeight=0.787 isLipSyncPlaying=True lastIdx=11 visemeCount=15
+[2.03s] playing=True audioMs=1835 wallMs=1842 frame=224 topViseme=10 topWeight=0.919 isLipSyncPlaying=True lastIdx=12 visemeCount=15
+[2.14s] playing=True audioMs=1941 wallMs=1949 frame=239 topViseme=10 topWeight=0.638 isLipSyncPlaying=True lastIdx=12 visemeCount=15
+[2.25s] playing=True audioMs=2027 wallMs=2055 frame=252 topViseme=6 topWeight=0.889 isLipSyncPlaying=True lastIdx=13 visemeCount=15
+[2.35s] playing=True audioMs=2155 wallMs=2161 frame=267 topViseme=6 topWeight=0.170 isLipSyncPlaying=True lastIdx=13 visemeCount=15
+[2.41s] AUDIO ENDED
+  SCREENSHOT (at_audio_end): C:/Users/yuval/src/aivatar/unity/aivatar/Assets\Screenshots\validate_at_audio_end_2026-04-13T22-03-36.png
+[2.46s] playing=False audioMs=0 wallMs=-1 frame=278 topViseme=6 topWeight=0.001 isLipSyncPlaying=False lastIdx=14 visemeCount=15
+[2.56s] playing=False audioMs=0 wallMs=-1 frame=293 topViseme=6 topWeight=0.000 isLipSyncPlaying=False lastIdx=14 visemeCount=15
+[2.67s] playing=False audioMs=0 wallMs=-1 frame=306 topViseme=6 topWeight=0.000 isLipSyncPlaying=False lastIdx=14 visemeCount=15
+[2.78s] playing=False audioMs=0 wallMs=-1 frame=321 topViseme=6 topWeight=0.000 isLipSyncPlaying=False lastIdx=14 visemeCount=15
+[2.88s] playing=False audioMs=0 wallMs=-1 frame=336 topViseme=6 topWeight=0.000 isLipSyncPlaying=False lastIdx=14 visemeCount=15
+  SCREENSHOT (after_audio_end_500ms): C:/Users/yuval/src/aivatar/unity/aivatar/Assets\Screenshots\validate_after_audio_end_500ms_2026-04-13T22-03-36.png
+[2.91s] POST-AUDIO CHECK: playing=False audioMs=0 wallMs=-1 frame=340 topViseme=6 topWeight=0.000 isLipSyncPlaying=False lastIdx=14 visemeCount=15
+
+--- VERDICT ---
+Distinct non-zero visemes seen: 11 (3,10,8,5,12,14,2,11,9,1,6)
+Multiple visemes animated: PASS
+Mouth closed after audio: PASS
+
+Screenshots:
+  mid_playback: C:/Users/yuval/src/aivatar/unity/aivatar/Assets\Screenshots\validate_mid_playback_2026-04-13T22-03-35.png
+  at_audio_end: C:/Users/yuval/src/aivatar/unity/aivatar/Assets\Screenshots\validate_at_audio_end_2026-04-13T22-03-36.png
+  after_audio_end_500ms: C:/Users/yuval/src/aivatar/unity/aivatar/Assets\Screenshots\validate_after_audio_end_500ms_2026-04-13T22-03-36.png

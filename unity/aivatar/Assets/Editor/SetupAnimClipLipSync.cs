@@ -67,9 +67,46 @@ public static class SetupAnimClipLipSync
         if (lipSync == null)
             lipSync = Undo.AddComponent<AnimClipLipSync>(avatarGO);
 
+        // Find the visible face mesh root — the root-level GameObject containing
+        // a SkinnedMeshRenderer whose bone count matches viseme_animation's.
+        GameObject targetRoot = null;
+        int bestBoneCount = 0;
+        foreach (var go in Object.FindObjectsByType<GameObject>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (go.transform.parent != null) continue;
+            if (go == animRoot.gameObject) continue; // skip the animation source itself
+
+            var smrs = go.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach (var smr in smrs)
+            {
+                if (smr == null || smr.bones == null) continue;
+                if (smr.bones.Length > bestBoneCount)
+                {
+                    // Check if this SMR's bones contain facial bones (FACIAL_* or head)
+                    bool hasFacial = false;
+                    foreach (var b in smr.bones)
+                    {
+                        if (b != null && (b.name.Contains("FACIAL") || b.name == "head"))
+                        { hasFacial = true; break; }
+                    }
+                    if (hasFacial)
+                    {
+                        bestBoneCount = smr.bones.Length;
+                        targetRoot = go;
+                    }
+                }
+            }
+        }
+        if (targetRoot != null)
+            sb.AppendLine($"Visible face root: '{targetRoot.name}' (bones={bestBoneCount})");
+        else
+            sb.AppendLine("WARNING: no visible face root found; falling back to animRoot");
+
         Undo.RecordObject(lipSync, "Wire AnimClipLipSync");
         lipSync.visemeClip = clip;
         lipSync.animRoot = animRoot.gameObject;
+        lipSync.targetRoot = targetRoot;
         EditorUtility.SetDirty(lipSync);
 
         var speech = avatarGO.GetComponent<AzureSpeechManager>();
@@ -127,5 +164,60 @@ public static class SetupAnimClipLipSync
     public static string TestTH() { return TestViseme(3); }
     public static string TestOH() { return TestViseme(13); }
     public static string TestOU() { return TestViseme(14); }
+
+    /// <summary>Check if the animation clip has real facial deformation by comparing sil vs aa poses.</summary>
+    public static string CheckPoses()
+    {
+        AnimationClip clip = null;
+        foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(ANIM_FBX_PATH))
+            if (asset is AnimationClip c && !c.name.StartsWith("__preview__")) { clip = c; break; }
+        if (clip == null) return "ERROR: no clip";
+
+        Transform root = null;
+        foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (go.name == "viseme_animation" && go.transform.parent == null) { root = go.transform; break; }
+        if (root == null) return "ERROR: viseme_animation not found";
+
+        float fps = clip.frameRate > 0 ? clip.frameRate : 30f;
+        var tempClip = Object.Instantiate(clip);
+        tempClip.legacy = true;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Clip: '{clip.name}' fps={fps} length={clip.length:F2}s frames={Mathf.RoundToInt(clip.length * fps)}");
+        sb.AppendLine($"Curves: {AnimationUtility.GetCurveBindings(clip).Length} bindings");
+
+        // Sample sil (frame 0) and aa (frame 100), compare key facial transforms
+        string[] boneNames = { "head", "jaw", "FACIAL_C_FacialRoot", "FACIAL_C_Jaw", "neck_01" };
+        tempClip.SampleAnimation(root.gameObject, 0f);
+        var silPoses = new System.Collections.Generic.Dictionary<string, Vector3>();
+        foreach (var t in root.GetComponentsInChildren<Transform>())
+            if (System.Array.IndexOf(boneNames, t.name) >= 0 || t.name.Contains("jaw") || t.name.Contains("Jaw"))
+                silPoses[t.name] = t.localRotation.eulerAngles;
+
+        tempClip.SampleAnimation(root.gameObject, 100f / fps);
+        sb.AppendLine("\nBone rotations sil(frame0) vs aa(frame100):");
+        int changed = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>())
+        {
+            if (silPoses.ContainsKey(t.name))
+            {
+                Vector3 aaPose = t.localRotation.eulerAngles;
+                Vector3 diff = aaPose - silPoses[t.name];
+                sb.AppendLine($"  {t.name}: sil={silPoses[t.name]:F1} aa={aaPose:F1} delta={diff.magnitude:F3}");
+                if (diff.magnitude > 0.1f) changed++;
+            }
+        }
+        sb.AppendLine($"\nBones with changed rotation: {changed}/{silPoses.Count}");
+
+        // Also report first 5 curve bindings to see what properties are animated
+        var bindings = AnimationUtility.GetCurveBindings(clip);
+        sb.AppendLine($"\nFirst 10 curve bindings:");
+        for (int i = 0; i < Mathf.Min(10, bindings.Length); i++)
+            sb.AppendLine($"  {bindings[i].path} / {bindings[i].propertyName}");
+
+        tempClip.SampleAnimation(root.gameObject, 0f); // reset to sil
+        Object.DestroyImmediate(tempClip);
+        return sb.ToString();
+    }
 }
 #endif

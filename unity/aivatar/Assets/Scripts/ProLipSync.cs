@@ -14,6 +14,14 @@ public class ProLipSync : LipSyncBase
     [Range(0.01f, 0.2f)] public float smoothTime = 0.08f;
     [Range(1.0f, 1.5f)] public float maxTotalWeight = 1.2f;
 
+    [Header("Sync")]
+    [Tooltip("Compensate for audio hardware latency. Increase if mouth moves before sound is heard.")]
+    [Range(-200f, 200f)] public float audioLatencyMs = 0f;
+
+    [Header("Debug")]
+    [Tooltip("Log viseme transitions to Console for sync diagnosis")]
+    public bool debugLog = false;
+
     // Internal State
     private VisemeTimeline activeTimeline;
     private int[] mappedIndices = new int[22]; // Caches the actual mesh indices
@@ -23,6 +31,7 @@ public class ProLipSync : LipSyncBase
     
     private bool isPlaying = false;
     private int lastVisemeIndex = 0; // Optimization: don't search from 0 every frame
+    private int playFrameCount = 0;
 
     void Awake()
     {
@@ -55,21 +64,38 @@ public class ProLipSync : LipSyncBase
     {
         activeTimeline = timeline;
         lastVisemeIndex = 0;
-        
+
         audioSource.clip = clip;
         audioSource.Play();
         isPlaying = true;
+        playFrameCount = 0;
+
+        if (debugLog)
+        {
+            Debug.Log($"[LipSync] Play: {timeline.visemes.Count} visemes, " +
+                      $"clip={clip.length:F3}s, timeline={timeline.durationMs:F0}ms, " +
+                      $"smoothAdvance={smoothTime * 700f:F0}ms");
+            for (int i = 0; i < Mathf.Min(timeline.visemes.Count, 20); i++)
+            {
+                var v = timeline.visemes[i];
+                Debug.Log($"  [{i}] t={v.timeMs:F0}ms viseme={v.visemeId} ({v.visemeName})");
+            }
+        }
     }
 
     void Update()
     {
         if (!isPlaying || activeTimeline == null) return;
 
-        // PRO UPGRADE: Use AudioSource time, NOT Time.time. 
+        // PRO UPGRADE: Use AudioSource time, NOT Time.time.
         // This prevents lips from drifting if the device drops frames.
-        float elapsedMs = audioSource.time * 1000f;
+        // Advance by ~70% of smoothTime to compensate for SmoothDamp response lag,
+        // so blendshapes reach target weight at the same time audio plays.
+        float smoothAdvanceMs = smoothTime * 700f;
+        float elapsedMs = Mathf.Max(0f, audioSource.time * 1000f + smoothAdvanceMs - audioLatencyMs);
 
-        if (!audioSource.isPlaying && elapsedMs == 0f)
+        playFrameCount++;
+        if (playFrameCount > 3 && !audioSource.isPlaying && audioSource.time == 0f)
         {
             isPlaying = false;
             ResetTargets();
@@ -87,11 +113,19 @@ public class ProLipSync : LipSyncBase
 
         // Optimization: Start searching from the last known index instead of 0
         int curIdx = lastVisemeIndex;
-        while (curIdx < activeTimeline.visemes.Count - 1 && 
+        while (curIdx < activeTimeline.visemes.Count - 1 &&
                activeTimeline.visemes[curIdx + 1].timeMs <= elapsedMs)
         {
             curIdx++;
         }
+
+        if (debugLog && curIdx != lastVisemeIndex)
+        {
+            var v = activeTimeline.visemes[curIdx];
+            Debug.Log($"[LipSync] audioT={audioSource.time * 1000f:F0}ms " +
+                      $"effectiveT={elapsedMs:F0}ms -> viseme {v.visemeId} (event t={v.timeMs:F0}ms)");
+        }
+
         lastVisemeIndex = curIdx;
 
         if (curIdx >= 0 && curIdx < activeTimeline.visemes.Count)

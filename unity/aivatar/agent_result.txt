@@ -1,1 +1,1 @@
-ready
+ERROR: Already in play mode. Exit first.
