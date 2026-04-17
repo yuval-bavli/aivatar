@@ -1,0 +1,11 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+faster-whisper>=1.0.0
+# torch + torchaudio must be installed with the correct CUDA variant:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+# (adjust cu124 to match your CUDA toolkit version)
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy>=1.24.0
+websockets>=12.0
+sounddevice>=0.4.6      # mic_client.py — live microphone input

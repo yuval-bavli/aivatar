@@ -43,7 +43,7 @@ Quick smoke test (no network, no ffmpeg needed):
 ```bash
 .venv/Scripts/python -c "
 import sys; sys.path.insert(0,'.')
-from sound_engine.tts.mock_tts import MockTTS
+from sound_engine.providers.mock_tts import MockTTS
 from sound_engine.phonemizer.phonemizer import Phonemizer
 from sound_engine.viseme.viseme_scheduler import VisemeScheduler
 mock = MockTTS()
@@ -64,3 +64,37 @@ Full test with real TTS (needs internet + ffmpeg):
 - `audio_offset` tick unit (must stay 100ns for Unity compatibility)
 - Viseme ID table in `arpabet_to_viseme.py` (must match Azure IDs 0–14 used in HTML prototype and Unity `VisemeMapping`)
 - Provider fallback order (ElevenLabs → edge-tts → mock)
+
+---
+
+## STT Server (`sound_engine/stt/`)
+
+Real-time speech-to-text WebSocket server. See `stt/README.md` for full docs.
+
+### Install (separate from TTS — needs CUDA torch)
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+pip install -r sound_engine/stt/requirements.txt
+```
+
+### Run
+```bash
+.venv/Scripts/python -m sound_engine.stt.server
+# Health check: curl http://localhost:8765/health
+```
+
+### Test with a WAV file
+```bash
+.venv/Scripts/python -m sound_engine.stt.test_client path/to/audio.wav --language en
+```
+
+### Key files
+- `stt/server.py` — FastAPI app, WebSocket handler, asyncio.Lock for GPU
+- `stt/session.py` — per-connection state machine (LISTENING / SPEAKING)
+- `stt/vad.py` — Silero VAD wrapper (CPU, shared across sessions)
+- `stt/audio_buffer.py` — pre-speech ring buffer + utterance accumulator
+- `stt/transcriber.py` — faster-whisper large-v3-turbo wrapper (CUDA GPU)
+
+### Architecture note
+TTS (port 5123, HTTP) and STT (port 8765, WebSocket) are separate processes.
+They do not share state. Run both if you need full duplex avatar conversation.

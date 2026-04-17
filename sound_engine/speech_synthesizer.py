@@ -94,7 +94,7 @@ class SpeechSynthesizer:
         api_key = os.environ.get("ELEVENLABS_API_KEY", "")
         if api_key:
             try:
-                from .tts.elevenlabs_provider import ElevenLabsProvider
+                from .providers.elevenlabs_provider import ElevenLabsProvider
                 provider = ElevenLabsProvider(api_key=api_key)
                 wav_bytes, duration_ms, _ = provider.synthesize(text)
                 return "elevenlabs", wav_bytes, duration_ms, None, None, None
@@ -103,7 +103,7 @@ class SpeechSynthesizer:
 
         # Try edge-tts
         try:
-            from .tts.edge_tts_provider import EdgeTTSProvider
+            from .providers.edge_tts_provider import EdgeTTSProvider
             kwargs = {}
             if self.voice:
                 kwargs['voice'] = self.voice
@@ -117,7 +117,7 @@ class SpeechSynthesizer:
             print(f"[sound_engine] edge-tts failed ({e}), falling back to MockTTS")
 
         # MockTTS fallback — provides per-word timings directly
-        from .tts.mock_tts import MockTTS
+        from .providers.mock_tts import MockTTS
         mock = MockTTS()
         wav_bytes, duration_ms, word_timings = mock.synthesize(text)
         word_list = [w for w in text.split() if w]
