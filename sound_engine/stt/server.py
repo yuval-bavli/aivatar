@@ -6,9 +6,9 @@ Start with:
     .venv/Scripts/python sound_engine/stt/server.py
 
 Endpoints:
-    GET  /health              — liveness check
-    WS   /ws/transcribe       — main STT endpoint
-         ?language=en|he|mixed — transcription language (default: en)
+    GET  /health              - liveness check
+    WS   /ws/transcribe       - main STT endpoint
+         ?language=en|he|mixed - transcription language (default: en)
 
 See README.md for the full WebSocket API reference.
 """
@@ -24,18 +24,21 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from log_utils import setup_logger  # noqa: E402
+
+from .sentence_buffer import SentenceBuffer
 from .session import STTSession
 from .transcriber import WhisperTranscriber
 from .vad import SileroVAD
 
 # ---------------------------------------------------------------------------
-# Logging
+# Logging - file + console via shared log_utils
 # ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
-    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger("stt_server")
 
 # ---------------------------------------------------------------------------
 # Application state (populated at startup)
@@ -58,15 +61,18 @@ async def _startup() -> None:
     logger.info("=== Aivatar STT Server startup ===")
 
     t0 = time.perf_counter()
+    logger.info("Loading Silero VAD...")
     _vad = SileroVAD()
     logger.info("Silero VAD ready (%.1fs)", time.perf_counter() - t0)
 
     t0 = time.perf_counter()
+    logger.info("Loading faster-whisper model...")
     _transcriber = WhisperTranscriber()
-    logger.info("faster-whisper ready (%.1fs)", time.perf_counter() - t0)
+    logger.info("faster-whisper ready — model=%s device=%s (%.1fs)",
+                _transcriber.model_size, _transcriber.device, time.perf_counter() - t0)
 
     _gpu_lock = asyncio.Lock()
-    logger.info("Server ready — listening on ws://0.0.0.0:8765/ws/transcribe")
+    logger.info("STT server ready — ws://0.0.0.0:8765/ws/transcribe")
 
 
 # ---------------------------------------------------------------------------
@@ -98,9 +104,12 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
     Text frames:   JSON control messages (see README).
     """
     await websocket.accept()
-    logger.info("Client connected (language=%s)", language)
+    client = websocket.client
+    logger.info("Client connected — addr=%s language=%s", client, language)
 
     session = STTSession(vad=_vad, language=language)
+    sentence_buf = SentenceBuffer()
+    utterance_count = 0
 
     try:
         while True:
@@ -116,15 +125,21 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
                 for event in events:
                     await websocket.send_text(json.dumps(event))
 
+                    if event.get("type") == "vad_event":
+                        vad_ev = event.get("event")
+                        logger.debug("VAD: %s", vad_ev)
+
                     if event.get("event") == "speech_end":
-                        # Run transcription off the event loop so the socket
-                        # stays responsive to the next turn
+                        utterance_count += 1
                         audio = session.get_utterance()
                         if audio is None:
-                            logger.debug("Utterance too short, skipping transcription")
+                            logger.debug("Utterance #%d too short — skipping", utterance_count)
                             session.reset()
                             continue
 
+                        logger.debug("Utterance #%d: %.0f samples — transcribing...",
+                                     utterance_count, len(audio))
+                        t0 = time.perf_counter()
                         try:
                             async with _gpu_lock:
                                 result = await asyncio.to_thread(
@@ -133,13 +148,20 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
                                     session.language,
                                 )
                         except Exception as exc:
-                            logger.exception("Transcription error")
+                            logger.exception("Transcription error on utterance #%d", utterance_count)
                             await websocket.send_text(json.dumps({
                                 "type": "error",
                                 "message": f"Transcription failed: {exc}",
                             }))
                             session.reset()
                             continue
+
+                        elapsed = time.perf_counter() - t0
+                        logger.info("Transcript #%d [%s] %.0fms inference: %r",
+                                    utterance_count, result.language,
+                                    result.inference_ms, result.text)
+                        logger.debug("Transcript timing: audio_ms=%.0f inference_ms=%.0f wall_s=%.2f",
+                                     result.duration_ms, result.inference_ms, elapsed)
 
                         await websocket.send_text(json.dumps({
                             "type": "transcript",
@@ -148,6 +170,15 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
                             "duration_ms": round(result.duration_ms),
                             "inference_ms": round(result.inference_ms),
                         }))
+
+                        # Emit complete sentences for AI agent consumption
+                        for sentence in sentence_buf.push(result.text):
+                            logger.info("Sentence complete: %r", sentence)
+                            await websocket.send_text(json.dumps({
+                                "type": "sentence",
+                                "text": sentence,
+                            }))
+
                         session.reset()
 
             # ---------------------------------------------------------------
@@ -157,24 +188,24 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
                 try:
                     msg = json.loads(message["text"])
                 except json.JSONDecodeError:
+                    logger.warning("Invalid JSON in control message")
                     await websocket.send_text(json.dumps({
                         "type": "error",
                         "message": "Invalid JSON in text message",
                     }))
                     continue
 
+                logger.debug("Control message: %s", msg)
                 responses = session.process_control(msg)
                 for resp in responses:
                     await websocket.send_text(json.dumps(resp))
 
     except WebSocketDisconnect:
-        logger.info("Client disconnected")
+        logger.info("Client disconnected — addr=%s utterances=%d", client, utterance_count)
     except RuntimeError as exc:
-        # Starlette raises RuntimeError("Cannot call 'receive' once a disconnect
-        # message has been received.") when the client drops mid-receive.
-        # Treat this as a normal disconnect, not an error.
+        # Starlette raises RuntimeError when the client drops mid-receive.
         if "disconnect" in str(exc).lower():
-            logger.info("Client disconnected (mid-receive)")
+            logger.info("Client disconnected (mid-receive) — addr=%s", client)
         else:
             logger.exception("Unexpected WebSocket RuntimeError: %s", exc)
     except Exception as exc:
@@ -193,7 +224,7 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Allow overriding host/port via env vars for Docker/dev convenience
     host = os.environ.get("STT_HOST", "0.0.0.0")
     port = int(os.environ.get("STT_PORT", "8765"))
+    logger.info("=== STT server starting on ws://%s:%d ===", host, port)
     uvicorn.run("sound_engine.stt.server:app", host=host, port=port, reload=False)

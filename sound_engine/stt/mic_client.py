@@ -214,6 +214,9 @@ async def run(device: dict, language: str, url: str) -> None:
                     text = msg.get("text", "").strip()
                     inf = msg.get("inference_ms", 0)
                     print(f"\r>>> {text}  \033[2m({inf:.0f}ms)\033[0m")
+                elif msg_type == "sentence":
+                    text = msg.get("text", "").strip()
+                    print(f"  \033[1;32m[SENTENCE]\033[0m {text}")
                 elif msg_type == "error":
                     print(f"\n[ERROR] {msg.get('message')}", file=sys.stderr)
 

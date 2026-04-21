@@ -1,4 +1,4 @@
-from .speech_synthesizer import SpeechSynthesizer
-from ._types import VisemeEvent, SpeechSynthesisResult
+from .tts.speech_synthesizer import SpeechSynthesizer
+from ._types import VisemeEvent, SentenceEvent, SpeechSynthesisResult
 
-__all__ = ["SpeechSynthesizer", "VisemeEvent", "SpeechSynthesisResult"]
+__all__ = ["SpeechSynthesizer", "VisemeEvent", "SentenceEvent", "SpeechSynthesisResult"]

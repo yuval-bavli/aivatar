@@ -1,0 +1,12 @@
+# aivatar_app orchestrator dependencies
+# Install into the repo venv:
+#   .venv/Scripts/pip install -r aivatar_app/requirements.txt
+
+httpx>=0.27
+sounddevice>=0.4
+websockets>=12.0
+anthropic>=0.96
+python-dotenv>=1.0
+
+# ai_tools and sound_engine are in the repo root — no pip install needed
+# (sys.path is set at runtime by orchestrator.py)

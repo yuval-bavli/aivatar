@@ -26,19 +26,20 @@ public class AzureSpeechManager : MonoBehaviour
     }
 
     [Serializable]
-    private class VisemeEventData
+    private class SentenceEventData
     {
-        public float time_ms;
-        public int   viseme_id;
+        public string text;
+        public float  end_time_ms;
     }
 
     [Serializable]
     private class SpeakResponse
     {
-        public string           audio_base64;
-        public int              sample_rate;
-        public float            duration_ms;
-        public VisemeEventData[] viseme_events;
+        public string                                audio_base64;
+        public int                                   sample_rate;
+        public float                                 duration_ms;
+        public AudioVisemeDecoder.VisemeEventData[]  viseme_events;
+        public SentenceEventData[]                   sentence_events;
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -82,28 +83,18 @@ public class AzureSpeechManager : MonoBehaviour
             yield break;
         }
 
-        // Decode WAV and build AudioClip
+        // Decode WAV + build VisemeTimeline via shared helper
         AudioClip clip;
+        VisemeTimeline timeline;
         try
         {
-            byte[] wavBytes = Convert.FromBase64String(resp.audio_base64);
-            (float[] samples, int sampleRate) = ParseWav(wavBytes);
-
-            // Use stream=true so Unity pulls from our callback — SetData doesn't work in Unity 6
-            int readPos = 0;
-            var buf = samples; // capture for closure
-            clip = AudioClip.Create("SoundEngine", samples.Length, 1, sampleRate, true,
-                data => {
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        data[i] = readPos < buf.Length ? buf[readPos] : 0f;
-                        readPos++;
-                    }
-                },
-                pos => { readPos = pos; });
-
-            Debug.Log($"[SoundEngine] Clip created (stream=true): " +
-                      $"samples={samples.Length} sampleRate={sampleRate} length={clip.length:F3}s");
+            (clip, timeline) = AudioVisemeDecoder.Decode(resp.audio_base64, resp.viseme_events, resp.duration_ms, text);
+            if (resp.sentence_events != null)
+            {
+                foreach (var se in resp.sentence_events)
+                    timeline.sentences.Add(new SentenceEvent { text = se.text, endTimeMs = se.end_time_ms });
+            }
+            Debug.Log($"[SoundEngine] Clip ready: samples={clip.samples} freq={clip.frequency} length={clip.length:F3}s");
         }
         catch (Exception e)
         {
@@ -111,67 +102,6 @@ public class AzureSpeechManager : MonoBehaviour
             yield break;
         }
 
-        // Build VisemeTimeline
-        var timeline = new VisemeTimeline { text = text, durationMs = resp.duration_ms };
-        if (resp.viseme_events != null)
-        {
-            foreach (var ev in resp.viseme_events)
-            {
-                timeline.visemes.Add(new VisemeEvent
-                {
-                    timeMs     = ev.time_ms,
-                    visemeId   = ev.viseme_id,
-                    visemeName = ev.viseme_id.ToString(),
-                });
-            }
-        }
-
-        Debug.Log($"[SoundEngine] Clip ready: samples={clip.samples} freq={clip.frequency} " +
-                  $"length={clip.length:F3}s channels={clip.channels}");
-
         lipSyncController.Play(timeline, clip);
-    }
-
-    // ── WAV parsing ──────────────────────────────────────────────────────────
-
-    /// <summary>Walk RIFF chunks to find "data", return float samples + sample rate.</summary>
-    private static (float[] samples, int sampleRate) ParseWav(byte[] wav)
-    {
-        int sampleRate = 22050;
-        int dataStart  = -1;
-        int dataSize   = -1;
-
-        int pos = 12; // skip "RIFF????WAVE"
-        while (pos < wav.Length - 8)
-        {
-            string id   = Encoding.ASCII.GetString(wav, pos, 4);
-            int    size = BitConverter.ToInt32(wav, pos + 4);
-
-            if (id == "fmt ")
-            {
-                sampleRate = BitConverter.ToInt32(wav, pos + 12);
-            }
-            else if (id == "data")
-            {
-                dataStart = pos + 8;
-                dataSize  = size;
-                break;
-            }
-
-            pos += 8 + size;
-            if (size % 2 != 0) pos++; // RIFF chunk padding
-        }
-
-        if (dataStart < 0)
-            throw new Exception("WAV 'data' chunk not found");
-
-        int count = dataSize / 2;
-        var samples = new float[count];
-        for (int i = 0; i < count; i++)
-        {
-            short s = BitConverter.ToInt16(wav, dataStart + i * 2);
-            samples[i] = s / 32768.0f;
-        }
-        return (samples, sampleRate);
     }
 }

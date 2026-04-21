@@ -31,6 +31,7 @@ public class ProLipSync : LipSyncBase
     
     private bool isPlaying = false;
     private int lastVisemeIndex = 0; // Optimization: don't search from 0 every frame
+    private int nextSentenceIndex = 0;
     private int playFrameCount = 0;
 
     void Awake()
@@ -64,6 +65,7 @@ public class ProLipSync : LipSyncBase
     {
         activeTimeline = timeline;
         lastVisemeIndex = 0;
+        nextSentenceIndex = 0;
 
         audioSource.clip = clip;
         audioSource.Play();
@@ -103,6 +105,7 @@ public class ProLipSync : LipSyncBase
             return;
         }
 
+        CheckSentenceFinished();
         UpdateTargets(elapsedMs);
         ApplySmoothing();
     }
@@ -187,6 +190,19 @@ public class ProLipSync : LipSyncBase
             {
                 faceMesh.SetBlendShapeWeight(meshIndex, currentWeights[i] * 100f);
             }
+        }
+    }
+
+    private void CheckSentenceFinished()
+    {
+        if (activeTimeline?.sentences == null || OnSentenceFinished == null) return;
+
+        float elapsedMs = audioSource.time * 1000f;
+        while (nextSentenceIndex < activeTimeline.sentences.Count &&
+               elapsedMs >= activeTimeline.sentences[nextSentenceIndex].endTimeMs)
+        {
+            OnSentenceFinished.Invoke(activeTimeline.sentences[nextSentenceIndex].text);
+            nextSentenceIndex++;
         }
     }
 

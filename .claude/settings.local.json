@@ -67,7 +67,9 @@
       "mcp__unity__delete_script",
       "mcp__unity__manage_asset",
       "WebFetch(domain:discussions.unity.com)",
-      "WebFetch(domain:docs.unity3d.com)"
+      "WebFetch(domain:docs.unity3d.com)",
+      "mcp__unity__set_active_instance",
+      "mcp__unity__manage_packages"
     ],
     "additionalDirectories": [
       "c:\\Users\\yuval\\.claude\\plans",

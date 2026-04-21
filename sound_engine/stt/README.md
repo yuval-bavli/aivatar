@@ -87,6 +87,16 @@ ffmpeg -i input.mp3 -ar 16000 -ac 1 -f s16le output.wav
 
 On first run, prompts you to choose a microphone and language. Your choice is saved to `mic_client_state.json` and reused on subsequent runs (press Enter to accept, or `c` to change).
 
+Example output for *"Hello there. How are you doing today?"*:
+```
+  [listening...]  [transcribing...]
+>>> Hello there. How are you doing today?  (342ms)
+  [SENTENCE] Hello there.
+  [SENTENCE] How are you doing today?
+```
+
+`>>>` lines are raw Whisper transcripts. `[SENTENCE]` lines (green) are complete-sentence events — these are what an AI agent should consume.
+
 Languages available in the mic client:
 - `en` — English
 - `he` — Hebrew
@@ -100,7 +110,7 @@ Languages available in the mic client:
 
 | Query param | Values | Default | Description |
 |-------------|--------|---------|-------------|
-| `language` | `en`, `he`, `mixed` | `en` | Transcription language. See language modes below. |
+| `language` | `en`, `he`, `mixed` | `en` | Tran scription language. See language modes below. |
 
 #### Language modes
 
@@ -141,6 +151,18 @@ Languages available in the mic client:
 ```
 
 The `language` field echoes back whatever was configured (`"en"`, `"he"`, or `"mixed"`). In mixed mode it always returns `"mixed"` — the per-utterance detected language is not exposed in the response.
+
+**Sentence events** (sent after each transcript, once per complete sentence):
+```json
+{"type": "sentence", "text": "Hello there."}
+{"type": "sentence", "text": "How are you doing today?"}
+```
+
+Sentence events are designed for AI agent consumption. They guarantee complete sentences — no cut-off fragments — by accumulating transcript text across VAD utterances and splitting on terminal punctuation (`.!?`). If a transcript ends mid-sentence (no terminal punctuation), the fragment is buffered and prepended to the next transcript before splitting again.
+
+For each utterance, the order of messages sent is:
+1. `transcript` — the raw Whisper output (always sent)
+2. Zero or more `sentence` events — only for sentences that are provably complete
 
 **VAD events** (sent immediately on state transitions):
 ```json
@@ -215,10 +237,17 @@ Client (microphone)
     │  large-v3-turbo, CUDA, float16      │
     │  beam_size=1, vad_filter=False      │
     └──────┬──────────────────────────────┘
+           │  raw transcript text
+    ┌──────▼──────────────────────────────┐
+    │  sentence_buffer.py                 │
+    │  Splits on [.!?], buffers trailing  │
+    │  fragments across utterances        │
+    └──────┬──────────────────────────────┘
            │
-    {"type": "transcript", "text": "..."}
+    {"type": "transcript", ...}           ← always sent (raw Whisper output)
+    {"type": "sentence", "text": "..."}  ← one per complete sentence
            │
-    ◄──────┘  WebSocket JSON response → Client
+    ◄──────┘  WebSocket JSON responses → Client
 ```
 
 ### Technology choices

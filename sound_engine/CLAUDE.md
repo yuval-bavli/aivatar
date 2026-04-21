@@ -3,7 +3,7 @@
 ## Python environment
 Always use `.venv` at the repo root:
 - Install: `.venv/Scripts/pip install -r sound_engine/requirements.txt`
-- Run: `.venv/Scripts/python sound_engine/examples/usage.py`
+- Run: `.venv/Scripts/python sound_engine/tts/examples/usage.py`
 
 ## Key implementation facts
 
@@ -43,9 +43,9 @@ Quick smoke test (no network, no ffmpeg needed):
 ```bash
 .venv/Scripts/python -c "
 import sys; sys.path.insert(0,'.')
-from sound_engine.providers.mock_tts import MockTTS
-from sound_engine.phonemizer.phonemizer import Phonemizer
-from sound_engine.viseme.viseme_scheduler import VisemeScheduler
+from sound_engine.tts.providers.mock_tts import MockTTS
+from sound_engine.tts.phonemizer.phonemizer import Phonemizer
+from sound_engine.tts.viseme.viseme_scheduler import VisemeScheduler
 mock = MockTTS()
 wav, dur, timings = mock.synthesize('hello world')
 ph = Phonemizer()
@@ -56,13 +56,29 @@ print([(e.viseme_id, e.audio_offset//10000) for e in events])
 
 Full test with real TTS (needs internet + ffmpeg):
 ```bash
-.venv/Scripts/python sound_engine/examples/usage.py approximate
-.venv/Scripts/python sound_engine/examples/usage.py enhanced
+.venv/Scripts/python sound_engine/tts/examples/usage.py approximate
+.venv/Scripts/python sound_engine/tts/examples/usage.py enhanced
 ```
+
+## TTS Server (`sound_engine/tts/`)
+
+HTTP server on port 5123. See `tts/README.md` for full docs.
+
+### Run
+```bash
+.venv/Scripts/python -m sound_engine.tts.server
+```
+
+### Key files
+- `tts/server.py` — HTTP handler, `/speak` endpoint
+- `tts/speech_synthesizer.py` — main orchestrator (providers → phonemizer → viseme)
+- `tts/providers/` — ElevenLabs, edge-tts, MockTTS
+- `tts/phonemizer/` — text → ARPABET
+- `tts/viseme/` — ARPABET → Azure viseme IDs + timing scheduler
 
 ## What NOT to change
 - `audio_offset` tick unit (must stay 100ns for Unity compatibility)
-- Viseme ID table in `arpabet_to_viseme.py` (must match Azure IDs 0–14 used in HTML prototype and Unity `VisemeMapping`)
+- Viseme ID table in `tts/viseme/arpabet_to_viseme.py` (must match Azure IDs 0–14 used in HTML prototype and Unity `VisemeMapping`)
 - Provider fallback order (ElevenLabs → edge-tts → mock)
 
 ---

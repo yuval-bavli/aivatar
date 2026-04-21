@@ -41,6 +41,9 @@ unity_3d_model_improver/ai_models/
 # Material backups created by mat_editor.py
 unity_3d_model_improver/mat_backups/
 
+# debug files 
+debug/
+
 # Unity agent bridge temp files
 unity/aivatar/agent_request.txt
 unity/aivatar/agent_result.txt

@@ -9,7 +9,14 @@ class VisemeEvent:
 
 
 @dataclass
+class SentenceEvent:
+    text: str           # The sentence text
+    end_time_ms: float  # When this sentence finishes (ms from audio start)
+
+
+@dataclass
 class SpeechSynthesisResult:
     audio_data: bytes           # WAV bytes
     duration_ms: float
     viseme_events: List[VisemeEvent] = field(default_factory=list)
+    sentence_events: List[SentenceEvent] = field(default_factory=list)
