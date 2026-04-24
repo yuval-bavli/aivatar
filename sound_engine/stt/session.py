@@ -22,7 +22,7 @@ from .vad import SileroVAD, VAD_CHUNK_SAMPLES
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_VAD_SILENCE_MS = 500    # silence duration before speech_end is triggered
+DEFAULT_VAD_SILENCE_MS = 350    # silence duration before speech_end is triggered
 DEFAULT_LANGUAGE = "en"
 
 

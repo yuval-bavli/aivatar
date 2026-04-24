@@ -57,6 +57,10 @@ class VisemeScheduler:
             offsets = self._distribute(phones, start_ms, dur_ms, timing_mode)
             for phone, offset_ms in zip(phones, offsets):
                 vid = phoneme_to_viseme(phone)
+                # Skip tongue/glottal gestures that map to neutral (e.g. L, HH)
+                # so they don't close the mouth mid-word.
+                if vid == 0:
+                    continue
                 events.append(VisemeEvent(vid, int(offset_ms * MS_TO_TICKS)))
 
         # Trailing silence

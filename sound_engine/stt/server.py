@@ -30,7 +30,6 @@ if _REPO_ROOT not in sys.path:
 
 from log_utils import setup_logger  # noqa: E402
 
-from .sentence_buffer import SentenceBuffer
 from .session import STTSession
 from .transcriber import WhisperTranscriber
 from .vad import SileroVAD
@@ -72,6 +71,14 @@ async def _startup() -> None:
                 _transcriber.model_size, _transcriber.device, time.perf_counter() - t0)
 
     _gpu_lock = asyncio.Lock()
+
+    # Warm-up: run one silent inference so the first real call isn't slow
+    logger.info("Warming up Whisper model...")
+    t0 = time.perf_counter()
+    import numpy as _np
+    _transcriber.transcribe(_np.zeros(16000, dtype=_np.float32), "en")
+    logger.info("Whisper warm-up done (%.1fs)", time.perf_counter() - t0)
+
     logger.info("STT server ready — ws://0.0.0.0:8765/ws/transcribe")
 
 
@@ -108,7 +115,6 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
     logger.info("Client connected — addr=%s language=%s", client, language)
 
     session = STTSession(vad=_vad, language=language)
-    sentence_buf = SentenceBuffer()
     utterance_count = 0
 
     try:
@@ -171,12 +177,13 @@ async def ws_transcribe(websocket: WebSocket, language: str = "en") -> None:
                             "inference_ms": round(result.inference_ms),
                         }))
 
-                        # Emit complete sentences for AI agent consumption
-                        for sentence in sentence_buf.push(result.text):
-                            logger.info("Sentence complete: %r", sentence)
+                        # Each VAD speech_end is a hard utterance boundary —
+                        # emit the whole transcript as one sentence immediately.
+                        if result.text.strip():
+                            logger.info("Sentence: %r", result.text)
                             await websocket.send_text(json.dumps({
                                 "type": "sentence",
-                                "text": sentence,
+                                "text": result.text.strip(),
                             }))
 
                         session.reset()

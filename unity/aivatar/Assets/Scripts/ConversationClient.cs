@@ -13,7 +13,12 @@ using UnityEngine.UI;
 /// <summary>
 /// Connects to the aivatar_app orchestrator (ws://127.0.0.1:5124).
 /// Receives speak/status messages, plays audio+visemes via the attached LipSync controller.
-/// Sends "done" when playback finishes; sends "stop" on Esc or the Stop button.
+///
+/// Speak messages are queued so the orchestrator can pipeline multiple sentence segments
+/// without waiting — each segment plays immediately after the previous one finishes,
+/// and a "done" acknowledgement is sent for every segment.
+///
+/// Sends "stop" on Esc or the Stop button.
 /// </summary>
 [DisallowMultipleComponent]
 public class ConversationClient : MonoBehaviour
@@ -55,9 +60,13 @@ public class ConversationClient : MonoBehaviour
     private readonly ConcurrentQueue<string> _inbox = new();
     private SemaphoreSlim                 _sendLock = new(1, 1);
     private AudioSource                   _audioSource;
+
+    // Speak queue — supports pipelined multi-segment replies
+    private readonly Queue<SpeakMessage>  _speakQueue = new();
     private bool                          _isPlaying;
     private bool                          _playbackStarted;
     private int                           _speakCount;
+
     private int                           _connectAttempt;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -95,20 +104,30 @@ public class ConversationClient : MonoBehaviour
         while (_inbox.TryDequeue(out var raw))
             HandleMessage(raw);
 
-        // Detect AudioSource finishing → tell orchestrator playback is done.
-        // Use a started-latch to avoid firing "done" on the same frame Play() was called,
-        // since AudioSource.isPlaying can be false for one frame before playback begins.
+        // Playback state machine:
+        // • If playing and audio has started then stopped → send done, try next in queue.
+        // • If not playing and queue has items → start next.
         if (_isPlaying)
         {
             if (_audioSource.isPlaying)
+            {
                 _playbackStarted = true;
+            }
             else if (_playbackStarted)
             {
                 _isPlaying = false;
                 _playbackStarted = false;
                 AivatarLogger.Log(TAG, $"[speak#{_speakCount}] AudioSource finished — sending done");
                 _ = SendJsonAsync("{\"type\":\"done\"}");
+
+                // Start next queued segment immediately if available
+                TryStartNextSegment();
             }
+        }
+        else
+        {
+            // Not currently playing — start next if queued
+            TryStartNextSegment();
         }
 
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
@@ -129,7 +148,6 @@ public class ConversationClient : MonoBehaviour
 
     private async Task ConnectLoopAsync()
     {
-        // Retry so Unity can be started before the orchestrator is ready
         while (!_cts.IsCancellationRequested)
         {
             _connectAttempt++;
@@ -191,7 +209,6 @@ public class ConversationClient : MonoBehaviour
             int totalBytes = assembled.Count;
             var raw = Encoding.UTF8.GetString(assembled.ToArray());
 
-            // Log message receipt (truncate large base64 payloads in the log)
             var logPreview = raw.Length > 200
                 ? raw.Substring(0, 200) + $"... ({raw.Length} chars total, {chunks} chunks)"
                 : raw;
@@ -215,16 +232,20 @@ public class ConversationClient : MonoBehaviour
                 case "speak":
                     var speak = JsonUtility.FromJson<SpeakMessage>(raw);
                     AivatarLogger.Log(TAG,
-                        $"[speak] Received speak — sample_rate={speak?.sample_rate} " +
+                        $"[speak] Queuing segment — sample_rate={speak?.sample_rate} " +
                         $"duration_ms={speak?.duration_ms:F0} " +
                         $"visemes={speak?.viseme_events?.Length ?? 0} " +
                         $"audio_b64_len={speak?.audio_base64?.Length ?? 0}");
-                    HandleSpeak(speak);
+                    if (speak != null)
+                        _speakQueue.Enqueue(speak);
                     break;
 
                 case "status":
                     var status = JsonUtility.FromJson<StatusMessage>(raw);
                     AivatarLogger.Log(TAG, $"[status] Orchestrator state -> {status?.state}");
+                    // On "listening", clear any stale queued segments
+                    if (status?.state == "listening")
+                        _speakQueue.Clear();
                     SetStatusLabel(status?.state ?? "");
                     break;
 
@@ -243,14 +264,19 @@ public class ConversationClient : MonoBehaviour
         }
     }
 
-    private void HandleSpeak(SpeakMessage msg)
-    {
-        if (msg == null)
-        {
-            AivatarLogger.Error(TAG, "[speak] Received null SpeakMessage — ignoring");
-            return;
-        }
+    // ── Speak queue management (called from Update on main thread) ────────────
 
+    private void TryStartNextSegment()
+    {
+        if (_isPlaying || _speakQueue.Count == 0)
+            return;
+
+        var msg = _speakQueue.Dequeue();
+        StartSegment(msg);
+    }
+
+    private void StartSegment(SpeakMessage msg)
+    {
         _speakCount++;
         AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Decoding audio...");
 
@@ -265,20 +291,19 @@ public class ConversationClient : MonoBehaviour
         catch (Exception e)
         {
             AivatarLogger.Error(TAG, $"[speak#{_speakCount}] Audio decode failed", e);
+            // Send done so the orchestrator's pending counter stays in sync
             _ = SendJsonAsync("{\"type\":\"done\"}");
             return;
         }
 
         AivatarLogger.Log(TAG,
-            $"[speak#{_speakCount}] Decode ok — clip.samples={clip.samples} " +
-            $"clip.frequency={clip.frequency} clip.length={clip.length:F3}s " +
+            $"[speak#{_speakCount}] Decode ok — clip.length={clip.length:F3}s " +
             $"viseme_events={timeline.visemes.Count} decode_ms={sw.ElapsedMilliseconds}");
 
-        AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Calling lipSyncController.Play()");
         _isPlaying = true;
         _playbackStarted = false;
         lipSyncController.Play(timeline, clip);
-        AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Play() called — monitoring AudioSource");
+        AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Play() called");
     }
 
     private void SetStatusLabel(string state)
@@ -335,6 +360,7 @@ public class ConversationClient : MonoBehaviour
         _ws?.Dispose();
         _ws = null;
         _isPlaying = false;
+        _speakQueue.Clear();
         AivatarLogger.Log(TAG, "Session stopped");
     }
 }

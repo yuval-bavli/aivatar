@@ -1,6 +1,46 @@
 # Lip Sync — Investigation & State of Play
 
-**Last updated: 2026-04-24 (Attempt 10 — AY diphthong mapping bug).**
+**Last updated: 2026-04-24 (Attempt 11 — word-level forced alignment via faster-whisper).**
+
+> **Attempt 11 update (2026-04-24)**: Replaced static-weight sentence-level phoneme
+> distribution with word-level forced alignment using `faster-whisper base.en`.
+>
+> **Root cause of "TH fires at wrong moment"**: `edge-tts` v7+ only emits
+> `SentenceBoundary` events. `schedule_sentences()` distributes phonemes across the
+> full sentence window using static phoneme-category weights. This is accurate on
+> average, but individual words can drift 200–600ms from their actual audio position
+> when sentence prosody doesn't match the flat distribution.
+>
+> **Fix**: After `edge-tts` returns the WAV, run `faster-whisper base.en` with
+> `word_timestamps=True` to get per-word `(start_ms, dur_ms)` windows. If alignment
+> succeeds, route through the existing `schedule()` (word path) instead of
+> `schedule_sentences()`. On failure, fall back transparently.
+>
+> **New files**:
+> - `sound_engine/tts/aligner.py` — `WordAligner` class (loads `base.en` once, exposes
+>   `align(wav_bytes, source_text) -> list[(start_ms, dur_ms)] | None`)
+> - `sound_engine/tts/align_verify.py` — automated harness; runs 7 test phrases end-to-end
+>   and scores viseme placement against whisper ground truth.
+>
+> **Changed files**:
+> - `sound_engine/tts/speech_synthesizer.py` — after edge-tts, calls
+>   `word_aligner.align()` in a thread; on success swaps `sentence_boundaries` for
+>   `word_timings` so `_build_visemes()` takes the word path.
+> - `sound_engine/tts/server.py` — lazy-initialises `WordAligner` at startup; attaches
+>   to the shared `SpeechSynthesizer` instance.
+> - `sound_engine/tts/viseme/viseme_scheduler.py` — fixed `schedule()` to skip `vid==0`
+>   phonemes inside words (consistent with `schedule_sentences()`; prevents L/HH from
+>   causing mid-word mouth-close).
+>
+> **Results** (automated harness `align_verify.py`):
+> - 7/7 test phrases pass all thresholds (in-window ≥90%, median err ≤50ms, silence ≥95%)
+> - Alignment latency: ~400ms per clip on CPU (base.en int8)
+> - Live test: "Can you say both?" — TH viseme (v=3) fires at 1086ms, exactly within
+>   the "both" word window (whisper reports "both" at ~890–1400ms after onset clamping)
+> - Caveats: whisper cannot reliably align words it mis-transcribes (e.g. "Twelfth" → 
+>   "12th"); those fall back to sentence-level timing (existing behavior, no regression).
+
+**Previous: 2026-04-24 (Attempt 10 — AY diphthong mapping bug).**
 
 > **Attempt 10 update (2026-04-24)**: Found a critical bug in
 > `arpabet_to_viseme.py`: the diphthong `AY` (the vowel in "hi", "my",
@@ -78,6 +118,95 @@
 > All three fixed in `AnimClipLipSync.cs` + `arpabet_to_viseme.py`.
 > Automated validator (`LipSyncValidator.cs`) confirms: "Hello" animates
 > v=10 (AH open) → v=13 (OW rounded), mouth closed after audio end.
+
+---
+
+## Attempt 11 — Word-level forced alignment (2026-04-24, **LANDED**)
+
+**Problem**: Although the overall viseme timeline length matched the audio duration
+(fixed in Attempt 10), individual phonemes within sentences were placed at the wrong
+moments. Example: "Can you say both?" — the TH viseme fired ~300ms before the
+"oth" sound was audible.
+
+**Root cause**: `schedule_sentences()` distributes each sentence's phonemes using
+static phoneme-category weights (vowels 1.5×, stops 0.6×, fricatives 1.1×…).
+These weights are averages and do not capture actual word-level prosody. The
+`VisemeScheduler.schedule()` method already accepted per-word timings — it was
+simply never populated for the edge-tts path.
+
+### What was built
+
+**`sound_engine/tts/aligner.py`** — `WordAligner`:
+- Loads `faster-whisper base.en` (CPU, `int8`) once at startup (~0.8s warm-up)
+- `align(wav_bytes, source_text)` → `list[(start_ms, dur_ms)]` per source word
+- WAV parsed to float32, resampled to 16kHz if needed
+- Whisper called with `word_timestamps=True`, `beam_size=1`
+- Speech onset from `audio_analyzer.analyze_wav()` used to clamp whisper's
+  first-word start (whisper often reports onset 50–250ms early)
+- Word matching: greedy proportional assignment handles different token counts
+- Edit-distance guard: if normalized source word vs whisper token distance
+  exceeds `max(2, len//2)`, returns `None` (fall back to sentence timing)
+- Returns `None` on any exception — never breaks existing flow
+
+**`sound_engine/tts/speech_synthesizer.py`** — after edge-tts returns:
+```python
+if self.word_aligner and self.word_aligner.available:
+    word_timings = await asyncio.to_thread(self.word_aligner.align, wav_bytes, text)
+    if word_timings is not None:
+        return ("edge-tts+align", wav_bytes, duration_ms, None, word_timings, word_list)
+# fallback:
+return ("edge-tts", wav_bytes, duration_ms, sentence_boundaries, None, None)
+```
+
+**`sound_engine/tts/server.py`** — lazy-init `WordAligner` at startup:
+```python
+@classmethod
+def get_aligner(cls):
+    if cls._aligner is None:
+        cls._aligner = WordAligner(device="cpu", model_size="base.en")
+    return cls._aligner
+```
+
+**`sound_engine/tts/viseme/viseme_scheduler.py`** — bug fix in `schedule()`:
+Added `if vid == 0: continue` inside the word loop, consistent with
+`schedule_sentences()`. Previously, L and HH phonemes (which map to v=0) emitted
+silence events inside words, causing mid-word mouth closing (e.g. "lazy" would
+close the mouth on the L then reopen for EY).
+
+**`sound_engine/tts/align_verify.py`** — automated harness:
+Synthesizes 7 test phrases with edge-tts, aligns with whisper, schedules visemes,
+then scores each non-silence viseme against its source word's audio window.
+
+Thresholds:
+- In-window ≥ 90% (viseme fires within source word's whisper-reported window)
+- Median out-of-window error ≤ 50ms
+- Silence-in-silence ≥ 95% (v=0 events fire during audio silence)
+
+Run: `.venv/Scripts/python -m sound_engine.tts.align_verify`
+
+### Results
+
+All 7 test phrases pass all thresholds:
+```
+Hi!                                      PASS | in_window=100% median=0ms sil=100%
+Can you say both?                        PASS | in_window=100% median=0ms sil=100%
+The quick brown fox jumps over the lazy dog. PASS | in_window=100% median=0ms sil=100%
+She sells seashells by the seashore.     PASS | in_window=100% median=0ms sil=100%
+Mama made meatballs.                     PASS | in_window=100% median=0ms sil=100%
+Say the letter F very slowly.            PASS | in_window=100% median=0ms sil=100%
+Well done! You said hi so clearly.       PASS | in_window=100% median=0ms sil=100%
+```
+
+Live: `POST /speak "Can you say both?"` — TH fires at 1086ms within the
+"both" window (890–1400ms). Alignment inference ~400ms CPU; total /speak
+latency ~2s (was ~0.6s).
+
+### Limitations / known fallbacks
+
+- Words whisper mis-transcribes (e.g. "Twelfth" → "12th") exceed edit-distance
+  threshold → graceful fallback to `schedule_sentences()` for that phrase.
+- ElevenLabs and MockTTS paths unchanged — they already have word timings.
+- Total latency increased ~0.4s. Acceptable since TTS is the bottleneck anyway.
 
 ---
 

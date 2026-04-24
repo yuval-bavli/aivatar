@@ -44,6 +44,7 @@ def _get_sample_rate(wav_bytes: bytes) -> int:
 
 class SpeechHandler(BaseHTTPRequestHandler):
     _synthesizer: SpeechSynthesizer | None = None
+    _aligner = None  # WordAligner, lazy-loaded
 
     @classmethod
     def get_synthesizer(cls) -> SpeechSynthesizer:
@@ -52,7 +53,24 @@ class SpeechHandler(BaseHTTPRequestHandler):
             t0 = time.perf_counter()
             cls._synthesizer = SpeechSynthesizer(timing_mode='enhanced')
             logger.info("SpeechSynthesizer ready (%.2fs)", time.perf_counter() - t0)
+            # Attach the word aligner (load it if not yet done)
+            cls._synthesizer.word_aligner = cls.get_aligner()
         return cls._synthesizer
+
+    @classmethod
+    def get_aligner(cls):
+        if cls._aligner is None:
+            enabled = os.environ.get("TTS_ENABLE_WORD_ALIGNER", "false").lower() in ("1", "true", "yes")
+            if not enabled:
+                logger.info("WordAligner disabled (TTS_ENABLE_WORD_ALIGNER != true)")
+                return None
+            try:
+                from sound_engine.tts.aligner import WordAligner
+                cls._aligner = WordAligner(device="cpu", model_size="base.en")
+            except Exception as e:
+                logger.warning("WordAligner init failed (%s) — running without word alignment", e)
+                cls._aligner = None
+        return cls._aligner
 
     def do_POST(self):
         if self.path != '/speak':
@@ -129,7 +147,8 @@ class SpeechHandler(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     port = int(os.environ.get('SOUND_ENGINE_PORT', '5123'))
     logger.info("=== TTS server starting on http://127.0.0.1:%d ===", port)
-    # Warm up the synthesizer at startup so the first request isn't slow
+    # Warm up both aligner and synthesizer at startup so the first request isn't slow
+    SpeechHandler.get_aligner()
     SpeechHandler.get_synthesizer()
     server = HTTPServer(('127.0.0.1', port), SpeechHandler)
     logger.info("TTS server ready — waiting for requests")

@@ -1,11 +1,14 @@
 """Main SpeechSynthesizer class — Azure-compatible async API."""
 import asyncio
 import os
-from typing import Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 
 from .._types import VisemeEvent, SentenceEvent, SpeechSynthesisResult
 from .phonemizer.phonemizer import Phonemizer
 from .viseme.viseme_scheduler import VisemeScheduler
+
+if TYPE_CHECKING:
+    from .aligner import WordAligner
 
 
 def _load_env():
@@ -58,6 +61,7 @@ class SpeechSynthesizer:
         self.viseme_received: Optional[Callable[[VisemeEvent], None]] = None
         self._phonemizer = Phonemizer()
         self._scheduler = VisemeScheduler()
+        self.word_aligner: Optional['WordAligner'] = None  # set by server after init
 
     async def speak_text_async(self, text: str) -> SpeechSynthesisResult:
         """Synthesize text asynchronously. Returns WAV + viseme events."""
@@ -122,6 +126,22 @@ class SpeechSynthesizer:
             wav_bytes, duration_ms, sentence_boundaries = \
                 await provider.synthesize_async(text)
             # sentence_boundaries: [(sent_text, start_ms, dur_ms), ...]
+
+            # Attempt word-level alignment via faster-whisper.
+            # If it succeeds, use the word path (schedule()) for better per-word
+            # phoneme placement.  On failure, fall back to sentence boundaries.
+            if self.word_aligner is not None and self.word_aligner.available:
+                try:
+                    word_timings = await asyncio.to_thread(
+                        self.word_aligner.align, wav_bytes, text
+                    )
+                    if word_timings is not None:
+                        word_list = [w for w in text.split() if w]
+                        return ("edge-tts+align", wav_bytes, duration_ms,
+                                None, word_timings, word_list)
+                except Exception as ae:
+                    print(f"[sound_engine] word alignment failed ({ae}), using sentence timing")
+
             return ("edge-tts", wav_bytes, duration_ms,
                     sentence_boundaries, None, None)
         except Exception as e:

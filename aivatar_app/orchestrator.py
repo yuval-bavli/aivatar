@@ -1,7 +1,7 @@
 """
 AI Avatar conversation orchestrator.
 
-Drives the loop: greet → listen (STT) → think (Claude) → speak (TTS+Unity) → repeat.
+Drives the loop: greet → listen (STT) → think+speak (Claude streaming + TTS pipeline) → repeat.
 Unity connects as a WebSocket client; this process is the server.
 
 Run:
@@ -28,18 +28,18 @@ import sounddevice as sd
 import websockets
 import websockets.exceptions
 
-# Ensure repo root is on sys.path so ai_tools and log_utils are importable
 _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from log_utils import setup_logger, setup_session_logger    # noqa: E402
 from ai_tools.claude.claude_client import ClaudeChatClient  # noqa: E402
-from ai_tools import ChatMessage  # noqa: E402
+from ai_tools import ChatMessage                             # noqa: E402
+from aivatar_app.sentence_splitter import SentenceSplitter  # noqa: E402
 
 logger = setup_logger("aivatar_app")
 
-# ── Config ───────────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────
 
 SAMPLE_RATE = 16_000
 CHANNELS = 1
@@ -55,7 +55,7 @@ DEFAULT_PROFILE = os.environ.get("AVATAR_PROFILE", "english_tutor_heb")
 PROFILES_DIR = _REPO_ROOT / "profiles"
 
 
-# ── Mic capture ──────────────────────────────────────────────────────────────
+# ── Mic capture ───────────────────────────────────────────────────────────────
 
 class MicStreamer:
     """Captures mic audio and puts 16kHz s16le mono PCM frames into an asyncio Queue."""
@@ -116,7 +116,7 @@ class MicStreamer:
         return await self._q.get()
 
 
-# ── Conversation session ─────────────────────────────────────────────────────
+# ── Conversation session ──────────────────────────────────────────────────────
 
 class ConversationSession:
     """Manages one full conversation with one Unity client."""
@@ -125,10 +125,20 @@ class ConversationSession:
         self._ws = websocket
         self._profile_name = profile_name
         self._mic = MicStreamer()
-        self._done_event = asyncio.Event()
         self._stop_event = asyncio.Event()
         self._ai_client: ClaudeChatClient | None = None
         self._http: httpx.AsyncClient | None = None
+
+        # Per-segment speak tracking (replaces the old single _done_event)
+        self._pending_speaks: int = 0
+        self._all_done_event = asyncio.Event()
+        self._all_done_event.set()  # starts clear (nothing pending)
+
+        # Legacy event kept for the greeting _speak() path
+        self._done_event = asyncio.Event()
+
+        # STT sentence queue — _consume_stt puts sentences here
+        self._sentence_q: asyncio.Queue[str] = asyncio.Queue()
 
     async def run(self) -> None:
         profile_dir = PROFILES_DIR / self._profile_name
@@ -152,58 +162,177 @@ class ConversationSession:
         loop = asyncio.get_event_loop()
         self._mic.start(loop)
 
+        stt_url = f"{STT_URL}?language=mixed"
         turn = 0
         try:
             async with httpx.AsyncClient(timeout=60.0) as http:
                 self._http = http
+                async with websockets.connect(stt_url, open_timeout=10) as stt_ws:
+                    # Persistent mic→STT stream and STT→queue consumer
+                    send_task = asyncio.create_task(self._stream_mic_to_stt(stt_ws))
+                    recv_task = asyncio.create_task(self._consume_stt(stt_ws))
 
-                logger.info("[session] Delivering greeting...")
-                await self._status("speaking")
-                session_log.info("Chatbot: %s", greeting)
-                await self._speak(greeting)
-                # Seed history so Claude knows it already introduced itself
-                self._ai_client._history.append(
-                    ChatMessage(role="assistant", content=greeting)
-                )
+                    try:
+                        logger.info("[session] Delivering greeting...")
+                        await self._status("speaking")
+                        session_log.info("Chatbot: %s", greeting)
+                        await self._speak(greeting)
+                        self._ai_client._history.append(
+                            ChatMessage(role="assistant", content=greeting)
+                        )
 
-                while not self._stop_event.is_set():
-                    turn += 1
-                    logger.info("[session] --- Turn %d: listening ---", turn)
-                    await self._status("listening")
-                    sentence = await self._listen()
-                    if sentence is None or self._stop_event.is_set():
-                        logger.info("[session] Listen returned None or stop — ending loop")
-                        break
+                        while not self._stop_event.is_set():
+                            turn += 1
+                            logger.info("[session] --- Turn %d: listening ---", turn)
+                            await self._status("listening")
+                            # Reset STT session state for a fresh turn
+                            try:
+                                await stt_ws.send(json.dumps({"type": "reset"}))
+                            except Exception:
+                                pass
 
-                    logger.info("[session] Turn %d | User  : %r", turn, sentence)
-                    session_log.info("User: %s", sentence)
-                    await self._status("thinking")
-                    reply = await self._think(sentence)
-                    logger.info("[session] Turn %d | Tutor : %r", turn, reply[:200])
-                    session_log.info("Chatbot: %s", reply)
+                            sentence = await self._listen()
+                            if sentence is None or self._stop_event.is_set():
+                                logger.info("[session] Listen returned None or stop — ending")
+                                break
 
-                    await self._status("speaking")
-                    await self._speak(reply)
+                            logger.info("[session] Turn %d | User  : %r", turn, sentence)
+                            session_log.info("User: %s", sentence)
+                            await self._status("thinking")
+
+                            reply = await self._think_and_speak(sentence, session_log, turn)
+                            logger.info("[session] Turn %d | Tutor : %r", turn, reply[:200])
+                            session_log.info("Chatbot: %s", reply)
+                    finally:
+                        send_task.cancel()
+                        recv_task.cancel()
+                        await asyncio.gather(send_task, recv_task, return_exceptions=True)
         finally:
             self._mic.stop()
             logger.info("[session] Ended after %d turns", turn)
 
-    # ── Core steps ───────────────────────────────────────────────────────────
+    # ── STT WebSocket tasks ───────────────────────────────────────────────────
 
-    async def _speak(self, text: str) -> None:
-        """Send text -> TTS, push speak message to Unity, wait for done."""
+    async def _stream_mic_to_stt(self, stt_ws) -> None:
+        """Forward mic PCM frames to STT WebSocket for the session lifetime."""
+        while True:
+            frame = await self._mic.get_frame()
+            try:
+                await stt_ws.send(frame)
+            except websockets.exceptions.ConnectionClosed:
+                break
+
+    async def _consume_stt(self, stt_ws) -> None:
+        """Read messages from STT WebSocket and route sentences to the queue."""
+        try:
+            async for raw in stt_ws:
+                if isinstance(raw, bytes):
+                    continue
+                if self._stop_event.is_set():
+                    break
+                try:
+                    msg = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if msg.get("type") == "sentence":
+                    text = msg.get("text", "").strip()
+                    if text:
+                        logger.debug("[stt] Queued sentence: %r", text)
+                        await self._sentence_q.put(text)
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        except asyncio.CancelledError:
+            pass
+
+    # ── Listen ────────────────────────────────────────────────────────────────
+
+    async def _listen(self) -> str | None:
+        """Wait for the next sentence from the STT consumer."""
+        while not self._stop_event.is_set():
+            try:
+                sentence = await asyncio.wait_for(self._sentence_q.get(), timeout=0.1)
+                return sentence
+            except asyncio.TimeoutError:
+                continue
+        return None
+
+    # ── Think + Speak (streaming pipeline) ────────────────────────────────────
+
+    async def _think_and_speak(self, user_text: str, session_log, turn: int) -> str:
+        """Stream Claude reply sentence-by-sentence, pipeline TTS, fire to Unity."""
         self._mic.pause()
-        self._done_event.clear()
-        preview = text[:80] + ("..." if len(text) > 80 else "")
-        logger.debug("[speak] Requesting TTS for: %r", preview)
+        self._pending_speaks = 0
+        self._all_done_event.set()  # will be cleared on first fire
+
+        splitter = SentenceSplitter()
+        reply_chunks: list[str] = []
+
+        t_start = time.perf_counter()
+        t_first_token: float | None = None
+        t_first_sentence: float | None = None
+        t_first_speak_sent: float | None = None
+
+        try:
+            await self._status("speaking")
+            async for chunk in self._ai_client.stream_async(user_text):
+                if t_first_token is None:
+                    t_first_token = time.perf_counter()
+                reply_chunks.append(chunk)
+                for sentence in splitter.feed(chunk):
+                    if t_first_sentence is None:
+                        t_first_sentence = time.perf_counter()
+                    sent_ok = await self._fire_tts(sentence)
+                    if sent_ok and t_first_speak_sent is None:
+                        t_first_speak_sent = time.perf_counter()
+
+            if tail := splitter.flush():
+                sent_ok = await self._fire_tts(tail)
+                if sent_ok and t_first_speak_sent is None:
+                    t_first_speak_sent = time.perf_counter()
+
+            full_reply = "".join(reply_chunks)
+
+            # Wait for Unity to finish playing all queued segments
+            if self._pending_speaks > 0:
+                timeout = max(60.0, self._pending_speaks * 30.0)
+                try:
+                    await asyncio.wait_for(self._all_done_event.wait(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    logger.warning("[speak] Timed out waiting for Unity done(s)")
+
+            t_end = time.perf_counter()
+            logger.info(
+                "[timing] turn=%d | first_token=+%.2fs first_sentence=+%.2fs "
+                "first_speak=+%.2fs total=%.2fs",
+                turn,
+                (t_first_token - t_start) if t_first_token else -1,
+                (t_first_sentence - t_start) if t_first_sentence else -1,
+                (t_first_speak_sent - t_start) if t_first_speak_sent else -1,
+                t_end - t_start,
+            )
+            return full_reply
+
+        except Exception as exc:
+            logger.exception("[think_and_speak] Error: %s", exc)
+            await self._send_error(str(exc))
+            return "Sorry, I had a little trouble. Let me try again!"
+        finally:
+            self._mic.resume()
+
+    async def _fire_tts(self, text: str) -> bool:
+        """Synthesize one sentence and send a speak message to Unity. Returns True on success."""
+        text = text.strip()
+        if not text:
+            return False
         try:
             t0 = time.perf_counter()
             resp = await self._http.post(TTS_URL, json={"text": text})
             resp.raise_for_status()
             data = resp.json()
-            tts_elapsed = time.perf_counter() - t0
-            logger.info("[speak] TTS ok — duration_ms=%.0f visemes=%d tts_elapsed=%.2fs",
-                        data["duration_ms"], len(data.get("viseme_events", [])), tts_elapsed)
+            logger.info("[speak] TTS %.2fs — %r", time.perf_counter() - t0, text[:60])
+
+            self._pending_speaks += 1
+            self._all_done_event.clear()
 
             await self._ws.send(json.dumps({
                 "type": "speak",
@@ -212,77 +341,43 @@ class ConversationSession:
                 "duration_ms": data["duration_ms"],
                 "viseme_events": data.get("viseme_events", []),
             }))
-            logger.debug("[speak] Sent to Unity — waiting for 'done'")
+            return True
+        except Exception as exc:
+            logger.exception("[speak] TTS/fire error for %r: %s", text[:40], exc)
+            return False
 
-            # Wait for Unity "done" with a safety timeout
+    # ── Greeting speak (simple, single-segment, awaits done) ─────────────────
+
+    async def _speak(self, text: str) -> None:
+        """Used for the greeting only. Synthesizes full text, waits for Unity done."""
+        self._mic.pause()
+        self._done_event.clear()
+        try:
+            t0 = time.perf_counter()
+            resp = await self._http.post(TTS_URL, json={"text": text})
+            resp.raise_for_status()
+            data = resp.json()
+            logger.info("[speak] Greeting TTS %.2fs — duration_ms=%.0f",
+                        time.perf_counter() - t0, data["duration_ms"])
+
+            await self._ws.send(json.dumps({
+                "type": "speak",
+                "audio_base64": data["audio_base64"],
+                "sample_rate": data["sample_rate"],
+                "duration_ms": data["duration_ms"],
+                "viseme_events": data.get("viseme_events", []),
+            }))
+
             timeout = max(data["duration_ms"] / 1000.0 + 10.0, 15.0)
             try:
                 await asyncio.wait_for(self._done_event.wait(), timeout=timeout)
-                logger.debug("[speak] Unity signalled done")
             except asyncio.TimeoutError:
                 logger.warning("[speak] Unity done timeout after %.0fs — resuming", timeout)
         except Exception as exc:
-            logger.exception("[speak] TTS/speak error: %s", exc)
+            logger.exception("[speak] Greeting TTS error: %s", exc)
             await self._send_error(str(exc))
         finally:
             self._mic.resume()
-
-    async def _listen(self) -> str | None:
-        """Stream mic to STT server, return the first complete sentence."""
-        stt_url = f"{STT_URL}?language=mixed"
-        try:
-            async with websockets.connect(stt_url, open_timeout=10) as stt_ws:
-                send_task = asyncio.create_task(self._stream_mic(stt_ws))
-                sentence: str | None = None
-                try:
-                    async for raw in stt_ws:
-                        if isinstance(raw, bytes):
-                            continue
-                        if self._stop_event.is_set():
-                            break
-                        try:
-                            msg = json.loads(raw)
-                        except json.JSONDecodeError:
-                            continue
-                        if msg.get("type") == "sentence":
-                            sentence = msg.get("text", "").strip()
-                            break
-                finally:
-                    send_task.cancel()
-                    try:
-                        await send_task
-                    except asyncio.CancelledError:
-                        pass
-                return sentence
-        except Exception as exc:
-            logger.error("[session] STT listen error: %s", exc)
-            return None
-
-    async def _stream_mic(self, stt_ws) -> None:
-        """Forward mic frames to STT WebSocket until cancelled."""
-        while True:
-            frame = await self._mic.get_frame()
-            try:
-                await stt_ws.send(frame)
-            except websockets.exceptions.ConnectionClosed:
-                break
-
-    async def _think(self, text: str) -> str:
-        """Send user text to Claude, return reply."""
-        logger.debug("[think] Sending to Claude: %r", text[:120])
-        t0 = time.perf_counter()
-        try:
-            response = await self._ai_client.send_async(text)
-            elapsed = time.perf_counter() - t0
-            logger.info("[think] Claude replied in %.2fs — tokens_in=%s tokens_out=%s",
-                        elapsed,
-                        response.usage.get("input_tokens", "?"),
-                        response.usage.get("output_tokens", "?"))
-            logger.debug("[think] Reply: %r", response.content[:200])
-            return response.content
-        except Exception as exc:
-            logger.exception("[think] Claude error after %.2fs: %s", time.perf_counter() - t0, exc)
-            return "Sorry, I had a little trouble. Let me try again!"
 
     # ── Unity message handling ────────────────────────────────────────────────
 
@@ -293,12 +388,19 @@ class ConversationSession:
             return
         t = msg.get("type")
         if t == "done":
+            # Greeting path
             self._done_event.set()
+            # Streaming pipeline path
+            self._pending_speaks = max(0, self._pending_speaks - 1)
+            if self._pending_speaks == 0:
+                self._all_done_event.set()
+            logger.debug("[unity] done received — pending_speaks=%d", self._pending_speaks)
         elif t == "stop":
             self._stop_event.set()
             self._done_event.set()
+            self._all_done_event.set()
 
-    # ── Helpers ──────────────────────────────────────────────────────────────
+    # ── Helpers ───────────────────────────────────────────────────────────────
 
     async def _status(self, state: str) -> None:
         try:
@@ -334,6 +436,7 @@ async def _handle_client(websocket) -> None:
     finally:
         session._stop_event.set()
         session._done_event.set()
+        session._all_done_event.set()
         run_task.cancel()
         try:
             await run_task
