@@ -32,7 +32,7 @@ public static class AgentSpeak
         if (!Application.isPlaying)
             return "ERROR: not in play mode";
 
-        var mgr = Object.FindObjectOfType<AzureSpeechManager>();
+        var mgr = Object.FindFirstObjectByType<AzureSpeechManager>();
         if (mgr == null)
             return "ERROR: AzureSpeechManager not found";
 

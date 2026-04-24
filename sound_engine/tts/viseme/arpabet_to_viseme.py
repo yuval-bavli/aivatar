@@ -37,7 +37,7 @@ ARPABET_TO_VISEME: Dict[str, int] = {
     'R': 9,  'ER': 9,
 
     # 10 - aa (low/open vowel)
-    'AA': 10,  'AE': 10,  'AH': 10,
+    'AA': 10,  'AE': 10,  'AH': 10,  'AY': 10,
 
     # 11 - E (mid-front vowel)
     'EH': 11,  'EY': 11,

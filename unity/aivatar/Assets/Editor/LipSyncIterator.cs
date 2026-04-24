@@ -122,7 +122,7 @@ public static class LipSyncIterator
 
     static void InjectTestData()
     {
-        _lipSync = UnityEngine.Object.FindObjectOfType<AnimClipLipSync>();
+        _lipSync = UnityEngine.Object.FindFirstObjectByType<AnimClipLipSync>();
         if (_lipSync == null)
         {
             FinishIteration("ERROR: AnimClipLipSync not found in scene.");
@@ -276,7 +276,7 @@ public static class LipSyncIterator
         catch { return; }
 
         // Find AnimClipLipSync in scene (edit mode)
-        var lipSync = UnityEngine.Object.FindObjectOfType<AnimClipLipSync>();
+        var lipSync = UnityEngine.Object.FindFirstObjectByType<AnimClipLipSync>();
         if (lipSync == null)
         {
             Debug.Log("[LipSyncIterator] ApplyUnityParams: AnimClipLipSync not found in scene (edit mode).");

@@ -35,6 +35,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Claude Code local settings
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
 # Ollama models (large binaries — re-pulled by setup.sh)
 unity_3d_model_improver/ai_models/
 

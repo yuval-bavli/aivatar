@@ -9,7 +9,7 @@ public static class AgentDiag
         var sb = new StringBuilder();
 
         // Find AzureSpeechManager and check lipSyncController
-        var mgr = Object.FindObjectOfType<AzureSpeechManager>();
+        var mgr = Object.FindFirstObjectByType<AzureSpeechManager>();
         if (mgr == null)
         {
             sb.AppendLine("AzureSpeechManager: NOT FOUND");
@@ -22,7 +22,7 @@ public static class AgentDiag
         }
 
         // Find AnimClipLipSync
-        var anim = Object.FindObjectOfType<AnimClipLipSync>();
+        var anim = Object.FindFirstObjectByType<AnimClipLipSync>();
         if (anim == null)
         {
             sb.AppendLine("AnimClipLipSync: NOT FOUND");
@@ -37,7 +37,7 @@ public static class AgentDiag
         }
 
         // Find ProLipSync
-        var pro = Object.FindObjectOfType<ProLipSync>();
+        var pro = Object.FindFirstObjectByType<ProLipSync>();
         if (pro == null)
         {
             sb.AppendLine("ProLipSync: NOT FOUND");
@@ -48,7 +48,7 @@ public static class AgentDiag
         }
 
         // Find TestSpeak
-        var test = Object.FindObjectOfType<TestSpeak>();
+        var test = Object.FindFirstObjectByType<TestSpeak>();
         if (test != null)
         {
             sb.AppendLine($"TestSpeak: on '{test.gameObject.name}', text='{test.testText}'");

@@ -7,7 +7,7 @@ public static class FixInputModule
 {
     public static string Run()
     {
-        var es = Object.FindObjectOfType<EventSystem>();
+        var es = Object.FindFirstObjectByType<EventSystem>();
         if (es == null) return "No EventSystem found";
 
         var old = es.GetComponent<StandaloneInputModule>();

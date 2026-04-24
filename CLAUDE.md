@@ -18,15 +18,44 @@ pip install -r sound_engine/stt/requirements.txt
 
 ## Logs
 
-All servers write structured logs to `debug/logs/` (one file per process, named `{service}_{YYYYMMDD_HHMMSS}.log`):
-- `aivatar_app_*.log` — orchestrator (Claude, STT/TTS coordination)
-- `tts_server_*.log` — TTS server
-- `stt_server_*.log` — STT server
-- `unity_*.log` — Unity-side AivatarLogger output
+Each service writes logs to its own subdirectory under `debug/logs/`, named `{service}_{YYYYMMDD_HHMMSS}.log`:
+- `debug/logs/aivatar_app/` — orchestrator (Claude, STT/TTS coordination)
+- `debug/logs/tts_server/` — TTS server
+- `debug/logs/stt_server/` — STT server
+- `debug/logs/unity/` — Unity-side AivatarLogger output
 
 Check these first when diagnosing runtime errors — tracebacks and exceptions are written at DEBUG level to the file even when not shown on the console.
 
-## Running the servers
+## Server management workflow after code changes
+
+After modifying any server file (`sound_engine/`, `aivatar_app/`, or `aivatar_ctl.py`):
+
+1. Run `--status` to check the current state:
+   ```bash
+   .venv/Scripts/python aivatar_ctl.py --status
+   ```
+2. If the overall status is **Running** or **Partially-running**, immediately restart so the changes take effect:
+   ```bash
+   .venv/Scripts/python aivatar_ctl.py --restart
+   ```
+3. If the overall status is **Stopped**, no restart is needed — leave the servers stopped.
+
+## Server management (aivatar_ctl)
+
+`aivatar_ctl.py` manages all three servers from a single command.
+Requires `psutil` — already installed in the venv.
+
+```bash
+.venv/Scripts/python aivatar_ctl.py --status   # show which servers are running
+.venv/Scripts/python aivatar_ctl.py --start    # start any servers not already running
+.venv/Scripts/python aivatar_ctl.py --restart  # stop all, then start fresh (picks up latest code)
+.venv/Scripts/python aivatar_ctl.py --exit     # graceful stop (force-kills after 6 s)
+```
+
+Servers are started in dependency order (TTS → STT → orchestrator) and detected by TCP port.
+Servers are background processes; their stdout/stderr go to the existing `debug/logs/` directories.
+
+## Running the servers manually
 
 ```bash
 # TTS — HTTP on port 5123
@@ -41,7 +70,7 @@ curl http://localhost:8765/health
 
 ## Running the full conversation loop (AI tutor avatar)
 
-Start three processes (each in its own terminal), then press Play in Unity:
+Use `aivatar_ctl.py --start` (above) or start three processes manually, then press Play in Unity:
 
 ```bash
 # Terminal 1 — TTS

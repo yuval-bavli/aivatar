@@ -19,13 +19,20 @@ public static class SetupAvatarScene
 
     // ── Avatar (lipSync + legacy TTS tester) ─────────────────────────────────
 
-    private static ProLipSync SetupAvatar()
+    private static AnimClipLipSync SetupAvatar()
     {
+        var existing = GameObject.Find("Avatar");
+        if (existing != null)
+        {
+            Debug.Log("[SetupAvatarScene] Avatar already exists — reusing.");
+            return existing.GetComponent<AnimClipLipSync>();
+        }
+
         var avatarGO = new GameObject("Avatar");
         var audio    = avatarGO.AddComponent<AudioSource>();
         audio.playOnAwake = false;
 
-        var lipSync = avatarGO.AddComponent<ProLipSync>();
+        var lipSync = avatarGO.AddComponent<AnimClipLipSync>();
 
         // Legacy direct-TTS path (still useful for quick smoke-tests)
         var speech = avatarGO.AddComponent<AzureSpeechManager>();
@@ -41,11 +48,18 @@ public static class SetupAvatarScene
 
     // ── ConversationClient ────────────────────────────────────────────────────
 
-    private static ConversationClient SetupConversationClient(ProLipSync lipSync)
+    private static ConversationClient SetupConversationClient(AnimClipLipSync lipSync)
     {
-        var go     = new GameObject("ConversationManager");
-        go.AddComponent<AudioSource>().playOnAwake = false;
+        var existing = GameObject.Find("ConversationManager");
+        if (existing != null)
+        {
+            Debug.Log("[SetupAvatarScene] ConversationManager already exists — reusing.");
+            var c = existing.GetComponent<ConversationClient>();
+            if (c != null) c.lipSyncController = lipSync;
+            return c;
+        }
 
+        var go     = new GameObject("ConversationManager");
         var client = go.AddComponent<ConversationClient>();
         client.lipSyncController = lipSync;
 
@@ -59,6 +73,12 @@ public static class SetupAvatarScene
         var conversationManager = GameObject.Find("ConversationManager");
         if (conversationManager == null) return;
         var client = conversationManager.GetComponent<ConversationClient>();
+
+        if (GameObject.Find("StopButtonCanvas") != null)
+        {
+            Debug.Log("[SetupAvatarScene] StopButtonCanvas already exists — skipping.");
+            return;
+        }
 
         // Canvas
         var canvasGO = new GameObject("StopButtonCanvas");

@@ -34,7 +34,7 @@ public static class LipSyncValidator
         if (!Application.isPlaying)
             return "ERROR: Must be in play mode. Enter play mode first (TestSpeak will trigger speech).";
 
-        _lipSync = Object.FindObjectOfType<AnimClipLipSync>();
+        _lipSync = Object.FindFirstObjectByType<AnimClipLipSync>();
         if (_lipSync == null)
             return "ERROR: AnimClipLipSync not found in scene.";
 

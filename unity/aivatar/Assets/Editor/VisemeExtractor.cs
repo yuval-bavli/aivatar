@@ -10,7 +10,7 @@ public class VisemeExtractor
         // Find and delete the incorrectly placed GameObject in the active scene
         // Need to use Resources.FindObjectsOfTypeAll or similar if it's inactive,
         // but FindObjectsOfType usually finds active ones in scene.
-        foreach (GameObject go in Object.FindObjectsOfType<GameObject>())
+        foreach (GameObject go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
         {
             if (go.name.Contains("viseme_animation"))
             {

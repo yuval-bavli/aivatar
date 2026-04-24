@@ -33,8 +33,9 @@ _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from log_utils import setup_logger                          # noqa: E402
+from log_utils import setup_logger, setup_session_logger    # noqa: E402
 from ai_tools.claude.claude_client import ClaudeChatClient  # noqa: E402
+from ai_tools import ChatMessage  # noqa: E402
 
 logger = setup_logger("aivatar_app")
 
@@ -146,6 +147,8 @@ class ConversationSession:
         logger.info("[session] Profile loaded: %s", self._profile_name)
         logger.info("[session] Greeting: %r", greeting[:80])
 
+        session_log = setup_session_logger()
+
         loop = asyncio.get_event_loop()
         self._mic.start(loop)
 
@@ -156,7 +159,12 @@ class ConversationSession:
 
                 logger.info("[session] Delivering greeting...")
                 await self._status("speaking")
+                session_log.info("Chatbot: %s", greeting)
                 await self._speak(greeting)
+                # Seed history so Claude knows it already introduced itself
+                self._ai_client._history.append(
+                    ChatMessage(role="assistant", content=greeting)
+                )
 
                 while not self._stop_event.is_set():
                     turn += 1
@@ -168,9 +176,11 @@ class ConversationSession:
                         break
 
                     logger.info("[session] Turn %d | User  : %r", turn, sentence)
+                    session_log.info("User: %s", sentence)
                     await self._status("thinking")
                     reply = await self._think(sentence)
                     logger.info("[session] Turn %d | Tutor : %r", turn, reply[:200])
+                    session_log.info("Chatbot: %s", reply)
 
                     await self._status("speaking")
                     await self._speak(reply)

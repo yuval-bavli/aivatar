@@ -15,10 +15,11 @@ using UnityEngine.UI;
 /// Receives speak/status messages, plays audio+visemes via the attached LipSync controller.
 /// Sends "done" when playback finishes; sends "stop" on Esc or the Stop button.
 /// </summary>
-[RequireComponent(typeof(AudioSource))]
+[DisallowMultipleComponent]
 public class ConversationClient : MonoBehaviour
 {
     private const string TAG = "ConversationClient";
+    private static ConversationClient _instance;
 
     [Header("Orchestrator")]
     public string orchestratorUrl = "ws://127.0.0.1:5124";
@@ -55,6 +56,7 @@ public class ConversationClient : MonoBehaviour
     private SemaphoreSlim                 _sendLock = new(1, 1);
     private AudioSource                   _audioSource;
     private bool                          _isPlaying;
+    private bool                          _playbackStarted;
     private int                           _speakCount;
     private int                           _connectAttempt;
 
@@ -62,7 +64,21 @@ public class ConversationClient : MonoBehaviour
 
     private void Awake()
     {
-        _audioSource = GetComponent<AudioSource>();
+        if (_instance != null)
+        {
+            AivatarLogger.Warn(TAG, "Duplicate ConversationClient detected — destroying this GameObject");
+            Destroy(gameObject);
+            return;
+        }
+        _instance = this;
+
+        if (lipSyncController == null)
+        {
+            AivatarLogger.Error(TAG, "lipSyncController is not assigned — cannot monitor playback");
+            enabled = false;
+            return;
+        }
+        _audioSource = lipSyncController.GetComponent<AudioSource>();
         AivatarLogger.Log(TAG, $"Awake — orchestratorUrl={orchestratorUrl}");
     }
 
@@ -79,12 +95,20 @@ public class ConversationClient : MonoBehaviour
         while (_inbox.TryDequeue(out var raw))
             HandleMessage(raw);
 
-        // Detect AudioSource finishing → tell orchestrator playback is done
-        if (_isPlaying && !_audioSource.isPlaying)
+        // Detect AudioSource finishing → tell orchestrator playback is done.
+        // Use a started-latch to avoid firing "done" on the same frame Play() was called,
+        // since AudioSource.isPlaying can be false for one frame before playback begins.
+        if (_isPlaying)
         {
-            _isPlaying = false;
-            AivatarLogger.Log(TAG, $"[speak#{_speakCount}] AudioSource finished — sending done");
-            _ = SendJsonAsync("{\"type\":\"done\"}");
+            if (_audioSource.isPlaying)
+                _playbackStarted = true;
+            else if (_playbackStarted)
+            {
+                _isPlaying = false;
+                _playbackStarted = false;
+                AivatarLogger.Log(TAG, $"[speak#{_speakCount}] AudioSource finished — sending done");
+                _ = SendJsonAsync("{\"type\":\"done\"}");
+            }
         }
 
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
@@ -96,6 +120,7 @@ public class ConversationClient : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_instance == this) _instance = null;
         AivatarLogger.Log(TAG, "OnDestroy — stopping session");
         StopSession();
     }
@@ -251,6 +276,7 @@ public class ConversationClient : MonoBehaviour
 
         AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Calling lipSyncController.Play()");
         _isPlaying = true;
+        _playbackStarted = false;
         lipSyncController.Play(timeline, clip);
         AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Play() called — monitoring AudioSource");
     }

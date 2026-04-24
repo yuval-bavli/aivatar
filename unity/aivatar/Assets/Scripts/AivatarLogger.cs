@@ -4,7 +4,7 @@ using System.Text;
 using UnityEngine;
 
 /// <summary>
-/// Shared file logger for Unity. Writes to debug/logs/unity_{timestamp}.log at the repo root,
+/// Shared file logger for Unity. Writes to debug/logs/unity/unity_{timestamp}.log at the repo root,
 /// mirroring every message to the Unity Editor console via Debug.Log.
 ///
 /// Usage:  AivatarLogger.Log("MyTag", "message");
@@ -24,7 +24,7 @@ public static class AivatarLogger
             // Application.dataPath = <repo>/unity/aivatar/Assets  →  go up 3 dirs for repo root
             var repoRoot = Path.GetFullPath(
                 Path.Combine(Application.dataPath, "..", "..", ".."));
-            var logDir = Path.Combine(repoRoot, "debug", "logs");
+            var logDir = Path.Combine(repoRoot, "debug", "logs", "unity");
             Directory.CreateDirectory(logDir);
 
             var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");

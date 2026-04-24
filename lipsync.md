@@ -1,6 +1,25 @@
 # Lip Sync — Investigation & State of Play
 
-**Last updated: 2026-04-14 (Automated optimizer — see Attempt 9). Visual result: significant improvement confirmed by user.**
+**Last updated: 2026-04-24 (Attempt 10 — AY diphthong mapping bug).**
+
+> **Attempt 10 update (2026-04-24)**: Found a critical bug in
+> `arpabet_to_viseme.py`: the diphthong `AY` (the vowel in "hi", "my",
+> "try", "fine") was missing from `ARPABET_TO_VISEME` and silently fell
+> through to `0` (silence). Every word containing `AY` produced zero
+> mouth motion, and the Attempt 9 optimizer's `time_scale=0.6934` was
+> partly compensating for this missing-event shrinkage.
+>
+> **Fix**: `'AY': 10` added to the vowel group (open/unrounded, visually
+> similar to AA/AE).
+>
+> **Reset**: `lipsync_params.json` set to `time_scale=1.0, global_offset_ms=0`
+> since the optimizer's convergence was against a phrase that happened to
+> avoid `AY`. After the mapping fix the raw timeline matches actual speech
+> within ~4% drift for a 4-sentence test phrase (7494ms scheduled span vs
+> 7210ms actual speech window, drift=1.04). Re-running the optimizer on
+> representative phrases may further refine these.
+
+**Previous: 2026-04-14 (Automated optimizer — see Attempt 9). Visual result: significant improvement confirmed by user.**
 
 > **Attempt 8 update**: Fixed two remaining bugs causing post-audio
 > mouth motion and a lingering "stuck viseme" on the last phoneme before
