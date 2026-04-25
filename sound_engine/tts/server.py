@@ -44,7 +44,9 @@ def _get_sample_rate(wav_bytes: bytes) -> int:
 
 class SpeechHandler(BaseHTTPRequestHandler):
     _synthesizer: SpeechSynthesizer | None = None
-    _aligner = None  # WordAligner, lazy-loaded
+    _phoneme_aligner = None   # PhonemeAligner (MMS_FA, GPU) — primary path
+    _word_aligner = None      # WordAligner (whisper, CPU) — fallback
+    _aligners_loaded = False
 
     @classmethod
     def get_synthesizer(cls) -> SpeechSynthesizer:
@@ -53,24 +55,47 @@ class SpeechHandler(BaseHTTPRequestHandler):
             t0 = time.perf_counter()
             cls._synthesizer = SpeechSynthesizer(timing_mode='enhanced')
             logger.info("SpeechSynthesizer ready (%.2fs)", time.perf_counter() - t0)
-            # Attach the word aligner (load it if not yet done)
-            cls._synthesizer.word_aligner = cls.get_aligner()
+            # Attach aligners
+            cls._load_aligners()
+            cls._synthesizer.phoneme_aligner = cls._phoneme_aligner
+            cls._synthesizer.word_aligner = cls._word_aligner
         return cls._synthesizer
 
     @classmethod
-    def get_aligner(cls):
-        if cls._aligner is None:
-            enabled = os.environ.get("TTS_ENABLE_WORD_ALIGNER", "false").lower() in ("1", "true", "yes")
-            if not enabled:
-                logger.info("WordAligner disabled (TTS_ENABLE_WORD_ALIGNER != true)")
-                return None
+    def _load_aligners(cls):
+        if cls._aligners_loaded:
+            return
+        cls._aligners_loaded = True
+
+        # Phoneme aligner (MMS_FA, GPU) — on by default, set TTS_DISABLE_PHONEME_ALIGNER=1 to skip
+        disabled = os.environ.get("TTS_DISABLE_PHONEME_ALIGNER", "").lower() in ("1", "true", "yes")
+        if not disabled:
             try:
-                from sound_engine.tts.aligner import WordAligner
-                cls._aligner = WordAligner(device="cpu", model_size="base.en")
-            except Exception as e:
-                logger.warning("WordAligner init failed (%s) — running without word alignment", e)
-                cls._aligner = None
-        return cls._aligner
+                from sound_engine.tts.phoneme_aligner import PhonemeAligner
+                device = os.environ.get("TTS_ALIGNER_DEVICE", "cuda")
+                cls._phoneme_aligner = PhonemeAligner(device=device)
+                if cls._phoneme_aligner.available:
+                    logger.info("PhonemeAligner ready (device=%s)", device)
+                else:
+                    logger.warning("PhonemeAligner loaded but not available")
+                    cls._phoneme_aligner = None
+            except Exception as exc:
+                logger.warning("PhonemeAligner init failed (%s) — disabled", exc)
+                cls._phoneme_aligner = None
+        else:
+            logger.info("PhonemeAligner disabled via TTS_DISABLE_PHONEME_ALIGNER")
+
+        # Word aligner (whisper CPU) — only loaded if phoneme aligner is unavailable
+        # or explicitly requested as backup
+        if cls._phoneme_aligner is None:
+            word_enabled = os.environ.get("TTS_ENABLE_WORD_ALIGNER", "false").lower() in ("1", "true", "yes")
+            if word_enabled:
+                try:
+                    from sound_engine.tts.aligner import WordAligner
+                    cls._word_aligner = WordAligner(device="cpu", model_size="base.en")
+                except Exception as exc:
+                    logger.warning("WordAligner init failed (%s)", exc)
+                    cls._word_aligner = None
 
     def do_POST(self):
         if self.path != '/speak':
@@ -147,8 +172,8 @@ class SpeechHandler(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     port = int(os.environ.get('SOUND_ENGINE_PORT', '5123'))
     logger.info("=== TTS server starting on http://127.0.0.1:%d ===", port)
-    # Warm up both aligner and synthesizer at startup so the first request isn't slow
-    SpeechHandler.get_aligner()
+    # Warm up aligners and synthesizer at startup so the first request isn't slow
+    SpeechHandler._load_aligners()
     SpeechHandler.get_synthesizer()
     server = HTTPServer(('127.0.0.1', port), SpeechHandler)
     logger.info("TTS server ready — waiting for requests")

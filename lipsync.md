@@ -1,6 +1,63 @@
 # Lip Sync — Investigation & State of Play
 
-**Last updated: 2026-04-24 (Attempt 11 — word-level forced alignment via faster-whisper).**
+**Last updated: 2026-04-25 (Attempt 12 — phoneme-level MMS_FA alignment + Slerp rotation fix + sync oracle).**
+
+> **Attempt 12 update (2026-04-25)**: Three stacked issues resolved simultaneously.
+>
+> **Root cause 1 — Iterative Slerp under-rotates jaw on every crossfade frame (Unity):**
+> `AnimClipLipSync.SmoothAndApply()` accumulated rotations via `rot = Slerp(rot, pose[v], weight[v])`
+> iterated over all 14 visemes. With `continuousCrossfade=true`, two visemes are always
+> simultaneously active, making this fire on **every frame**. The jaw never opened as far as the
+> baked FBX viseme intends — TH's extreme jaw drop and AA's wide open became indistinguishable
+> on screen. Fix: find top-2 visemes by weight, apply a clean two-viseme Slerp.
+>
+> **Root cause 2 — Within-word phoneme timing still approximate (Python):**
+> The MMS_FA word-level aligner (Attempt 11) gave accurate word boundaries, but phonemes inside
+> each word were still placed by static category weights (`_distribute()` with vowels 1.5×, stops
+> 0.6×…). For a word like "seashells" (5 phonemes across 600ms), individual phonemes could drift
+> ±150ms from their true audio position.
+>
+> **Fix**: Replaced faster-whisper word aligner with `torchaudio.pipelines.MMS_FA` phoneme aligner
+> (`sound_engine/tts/phoneme_aligner.py`). MMS_FA runs forced alignment on the actual TTS audio,
+> returning per-character TokenSpan objects from the real audio signal. Phonemes within each word
+> are then pro-rated by character-span durations (characters that consume more audio time give their
+> phonemes proportionally more time). New scheduler path: `VisemeScheduler.schedule_phoneme_timings()`.
+>
+> **Latency impact**: MMS_FA on GPU (warm model) = **14ms** vs ~400ms for whisper on CPU. Net
+> saving of ~380ms per TTS call. Total `/speak` latency: edge-tts synthesis (~0.5–1.5s) + 14ms.
+>
+> **Root cause 3 — No ground-truth verification (tooling):**
+> Built two-layer sync oracle:
+> - `sound_engine/sync_oracle.py` — loads Unity frame log (with jaw_deg + lip_gap fields now
+>   recorded), cross-correlates mouth signal against audio RMS, detects flat plateaus, scores 0–100,
+>   and writes `debug/sync_report.png` with audio + mouth + phoneme overlay.
+> - `sound_engine/sync_pixel_oracle.py` — loads PNG frames from `LipSyncFrameRecorder.cs`, runs
+>   mediapipe face mesh to extract pixel lip distance, correlates against audio and bone motion.
+>
+> **New files**:
+> - `sound_engine/tts/phoneme_aligner.py` — `PhonemeAligner` (MMS_FA, GPU)
+> - `sound_engine/sync_oracle.py` — bone-motion vs audio oracle (numeric + PNG)
+> - `sound_engine/sync_pixel_oracle.py` — pixel-level oracle using mediapipe
+> - `unity/aivatar/Assets/Editor/LipSyncFrameRecorder.cs` — captures ~30fps PNGs during playback
+>
+> **Changed files**:
+> - `unity/aivatar/Assets/Scripts/AnimClipLipSync.cs` — fixed `SmoothAndApply()` rotation blend;
+>   extended `FrameRecord` with `jawDeg` and `lipGap` fields; cached jaw/lip bone references.
+> - `sound_engine/tts/speech_synthesizer.py` — phoneme aligner is first-try, word aligner fallback,
+>   sentence-level as last resort; new 8-element return tuple.
+> - `sound_engine/tts/server.py` — lazy-init `PhonemeAligner`, env var `TTS_DISABLE_PHONEME_ALIGNER`
+>   to opt out; falls back to word aligner if phoneme aligner unavailable.
+> - `sound_engine/tts/viseme/viseme_scheduler.py` — new `schedule_phoneme_timings()` method.
+> - `lipsync_params.json` — reset: `smoothAdvanceMs=0, global_offset_ms=0, time_scale=1.0`.
+>
+> **Verified output** (phoneme timing, post-fix):
+> ```
+> 'Can you say both?'  TH viseme (v=3) @ 1030ms — correct word position
+> 'She sells seashells.' — SS visemes at 440ms, 635ms, 1208ms — all three S sounds distinct
+> 'Hi!' — AY diphthong @ 546ms (was missing pre-Attempt 10, now present and timed correctly)
+> ```
+
+**Previous: 2026-04-24 (Attempt 11 — word-level forced alignment via faster-whisper).**
 
 > **Attempt 11 update (2026-04-24)**: Replaced static-weight sentence-level phoneme
 > distribution with word-level forced alignment using `faster-whisper base.en`.

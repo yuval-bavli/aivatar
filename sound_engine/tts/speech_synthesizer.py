@@ -9,6 +9,7 @@ from .viseme.viseme_scheduler import VisemeScheduler
 
 if TYPE_CHECKING:
     from .aligner import WordAligner
+    from .phoneme_aligner import PhonemeAligner
 
 
 def _load_env():
@@ -61,16 +62,19 @@ class SpeechSynthesizer:
         self.viseme_received: Optional[Callable[[VisemeEvent], None]] = None
         self._phonemizer = Phonemizer()
         self._scheduler = VisemeScheduler()
-        self.word_aligner: Optional['WordAligner'] = None  # set by server after init
+        self.phoneme_aligner: Optional['PhonemeAligner'] = None  # set by server — tries first
+        self.word_aligner: Optional['WordAligner'] = None        # fallback if phoneme aligner fails
 
     async def speak_text_async(self, text: str) -> SpeechSynthesisResult:
         """Synthesize text asynchronously. Returns WAV + viseme events."""
         (provider_name, wav_bytes, duration_ms,
-         sentence_boundaries, word_timings, word_list) = \
+         sentence_boundaries, word_timings, word_list,
+         phoneme_timings, word_phonemes) = \
             await self._synthesize_async(text)
 
         viseme_events = self._build_visemes(
             text, sentence_boundaries, word_timings, word_list, duration_ms,
+            phoneme_timings=phoneme_timings, word_phonemes=word_phonemes,
         )
 
         for ev in viseme_events:
@@ -112,7 +116,7 @@ class SpeechSynthesizer:
                 from .providers.elevenlabs_provider import ElevenLabsProvider
                 provider = ElevenLabsProvider(api_key=api_key)
                 wav_bytes, duration_ms, _ = provider.synthesize(text)
-                return "elevenlabs", wav_bytes, duration_ms, None, None, None
+                return "elevenlabs", wav_bytes, duration_ms, None, None, None, None, None
             except Exception as e:
                 print(f"[sound_engine] ElevenLabs failed ({e}), falling back to edge-tts")
 
@@ -127,23 +131,36 @@ class SpeechSynthesizer:
                 await provider.synthesize_async(text)
             # sentence_boundaries: [(sent_text, start_ms, dur_ms), ...]
 
-            # Attempt word-level alignment via faster-whisper.
-            # If it succeeds, use the word path (schedule()) for better per-word
-            # phoneme placement.  On failure, fall back to sentence boundaries.
+            # ── Alignment: phoneme-level (MMS_FA) → word-level (whisper) → sentence ──
+            word_list = [w for w in text.split() if w]
+            word_phonemes = self._phonemizer.phonemize_word_list(word_list)
+
+            # 1. Phoneme-level forced alignment (GPU, ~100ms, best quality)
+            if self.phoneme_aligner is not None and self.phoneme_aligner.available:
+                try:
+                    phoneme_timings = await asyncio.to_thread(
+                        self.phoneme_aligner.align, wav_bytes, word_phonemes
+                    )
+                    if phoneme_timings is not None:
+                        return ("edge-tts+phoneme", wav_bytes, duration_ms,
+                                None, None, word_list, phoneme_timings, word_phonemes)
+                except Exception as ae:
+                    print(f"[sound_engine] phoneme alignment failed ({ae}), trying word aligner")
+
+            # 2. Word-level alignment fallback (CPU whisper, ~400ms)
             if self.word_aligner is not None and self.word_aligner.available:
                 try:
                     word_timings = await asyncio.to_thread(
                         self.word_aligner.align, wav_bytes, text
                     )
                     if word_timings is not None:
-                        word_list = [w for w in text.split() if w]
                         return ("edge-tts+align", wav_bytes, duration_ms,
-                                None, word_timings, word_list)
+                                None, word_timings, word_list, None, None)
                 except Exception as ae:
                     print(f"[sound_engine] word alignment failed ({ae}), using sentence timing")
 
             return ("edge-tts", wav_bytes, duration_ms,
-                    sentence_boundaries, None, None)
+                    sentence_boundaries, None, None, None, None)
         except Exception as e:
             print(f"[sound_engine] edge-tts failed ({e}), falling back to MockTTS")
 
@@ -152,7 +169,7 @@ class SpeechSynthesizer:
         mock = MockTTS()
         wav_bytes, duration_ms, word_timings = mock.synthesize(text)
         word_list = [w for w in text.split() if w]
-        return "mock", wav_bytes, duration_ms, None, word_timings, word_list
+        return "mock", wav_bytes, duration_ms, None, word_timings, word_list, None, None
 
     def _build_visemes(
         self,
@@ -161,8 +178,20 @@ class SpeechSynthesizer:
         word_timings: Optional[List[Tuple[float, float]]],
         word_list: Optional[List[str]],
         duration_ms: float,
+        phoneme_timings: Optional[List[Tuple[float, float]]] = None,
+        word_phonemes: Optional[List[Tuple[str, List[str]]]] = None,
     ) -> List[VisemeEvent]:
         """Phonemize per sentence/word and schedule viseme events."""
+        # Best path: phoneme-level MMS_FA timings — exact per-phoneme placement
+        if phoneme_timings is not None and word_phonemes is not None:
+            return self._scheduler.schedule_phoneme_timings(
+                flat_phoneme_timings=phoneme_timings,
+                word_phonemes=word_phonemes,
+                total_duration_ms=duration_ms,
+                global_offset_ms=self.global_offset_ms,
+                time_scale=self.time_scale,
+            )
+
         if sentence_boundaries:
             # edge-tts path: phonemize each sentence's words, pass the whole
             # (start_ms, dur_ms, [(word, phones), ...]) structure to the

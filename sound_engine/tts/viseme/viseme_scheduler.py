@@ -164,6 +164,57 @@ class VisemeScheduler:
 
         return deduped
 
+    def schedule_phoneme_timings(
+        self,
+        flat_phoneme_timings: List[Tuple[float, float]],
+        word_phonemes: List[Tuple[str, List[str]]],
+        total_duration_ms: float,
+        global_offset_ms: float = 0.0,
+        time_scale: float = 1.0,
+    ) -> List[VisemeEvent]:
+        """
+        Schedule visemes from per-phoneme (start_ms, end_ms) timings.
+
+        `flat_phoneme_timings` is a flat list — one (start_ms, end_ms) per
+        ARPABET phoneme across ALL words, in the same order as
+        iterating word_phonemes[i][1] for each i.  Comes from PhonemeAligner.
+
+        Each phoneme fires at its start_ms. Silent phonemes (vid==0) inside a
+        word are skipped to avoid mid-word mouth closure.
+        """
+        events: List[VisemeEvent] = [VisemeEvent(0, 0)]  # leading silence
+
+        timing_iter = iter(flat_phoneme_timings)
+        for word, phones in word_phonemes:
+            in_word_non_sil = False
+            for phone in phones:
+                try:
+                    start_ms, _end_ms = next(timing_iter)
+                except StopIteration:
+                    break
+                vid = phoneme_to_viseme(phone)
+                if vid == 0:
+                    continue  # skip silent phonemes inside words
+                events.append(VisemeEvent(vid, int(start_ms * MS_TO_TICKS)))
+                in_word_non_sil = True
+
+        events.append(VisemeEvent(0, int(total_duration_ms * MS_TO_TICKS)))
+        events.sort(key=lambda e: e.audio_offset)
+
+        if global_offset_ms != 0.0 or time_scale != 1.0:
+            adjusted = []
+            for ev in events:
+                ms = (ev.audio_offset / MS_TO_TICKS) * time_scale + global_offset_ms
+                adjusted.append(VisemeEvent(ev.viseme_id, int(max(0.0, ms) * MS_TO_TICKS)))
+            events = adjusted
+            events.sort(key=lambda e: e.audio_offset)
+
+        deduped: List[VisemeEvent] = []
+        for ev in events:
+            if not deduped or deduped[-1].viseme_id != ev.viseme_id:
+                deduped.append(ev)
+        return deduped
+
     def _distribute(
         self,
         phones: List[str],

@@ -88,6 +88,11 @@ public class AnimClipLipSync : LipSyncBase
     private float _playStartRealtime; // fallback: realtime when Play() was called (always advances)
     private float _clipDuration;      // clip length in seconds
 
+    // Cached bone references for per-frame motion logging
+    private Transform _jawBone;
+    private Transform _lipUpperBone;
+    private Transform _lipLowerBone;
+
     // Frame recording
     private struct FrameRecord
     {
@@ -95,8 +100,13 @@ public class AnimClipLipSync : LipSyncBase
         public int topVisemeId;
         public float topWeight;
         public float audioMs;
+        public float jawDeg;    // FACIAL_C_Jaw localEulerAngles.x (mouth openness)
+        public float lipGap;    // world-space distance between LipUpper and LipLower
     }
     private List<FrameRecord> _frameLog;
+
+    /// <summary>True while audio + viseme animation are playing.</summary>
+    public bool isLipSyncPlaying => isPlaying;
 
     /// <summary>Returns a snapshot of runtime state for external validation.</summary>
     public string GetDiagnostics()
@@ -183,6 +193,15 @@ public class AnimClipLipSync : LipSyncBase
         targetBones = matchedBones.ToArray();
         targetBoneNames = matchedNames.ToArray();
         boneCount = targetBones.Length;
+
+        // Cache jaw/lip bones for per-frame motion logging
+        for (int i = 0; i < boneCount; i++)
+        {
+            string n = targetBoneNames[i];
+            if (n.Contains("FACIAL_C_Jaw") || n == "FACIAL_C_Jaw")         _jawBone = targetBones[i];
+            else if (n.Contains("LipUpper") && n.Contains("FACIAL_C"))     _lipUpperBone = targetBones[i];
+            else if (n.Contains("LipLower") && n.Contains("FACIAL_C"))     _lipLowerBone = targetBones[i];
+        }
 
         currentWeights = new float[VISEME_COUNT];
         targetWeights = new float[VISEME_COUNT];
@@ -272,12 +291,27 @@ public class AnimClipLipSync : LipSyncBase
             for (int i = 0; i < VISEME_COUNT; i++)
                 if (currentWeights[i] > topW) { topW = currentWeights[i]; topVis = i; }
             float rawAudioMs = audioSource != null ? audioSource.time * 1000f : 0f;
+
+            // Jaw angle: normalize to [-180, 180]
+            float jaw = 0f;
+            if (_jawBone != null)
+            {
+                jaw = _jawBone.localEulerAngles.x;
+                if (jaw > 180f) jaw -= 360f;
+            }
+            // Lip gap: world-space vertical distance between upper and lower lip bones
+            float gap = 0f;
+            if (_lipUpperBone != null && _lipLowerBone != null)
+                gap = Mathf.Abs(_lipUpperBone.position.y - _lipLowerBone.position.y);
+
             _frameLog.Add(new FrameRecord
             {
                 timeMs = elapsedMs,
                 topVisemeId = topVis,
                 topWeight = topW,
                 audioMs = rawAudioMs,
+                jawDeg = jaw,
+                lipGap = gap,
             });
         }
 
@@ -380,7 +414,8 @@ public class AnimClipLipSync : LipSyncBase
             var f = _frameLog[i];
             if (i > 0) sb.Append(',');
             sb.Append($"{{\"time_ms\":{f.timeMs:F1},\"top_viseme_id\":{f.topVisemeId}," +
-                      $"\"top_weight\":{f.topWeight:F4},\"audio_ms\":{f.audioMs:F1}}}");
+                      $"\"top_weight\":{f.topWeight:F4},\"audio_ms\":{f.audioMs:F1}," +
+                      $"\"jaw_deg\":{f.jawDeg:F3},\"lip_gap\":{f.lipGap:F5}}}");
         }
         sb.Append(']');
         return sb.ToString();
@@ -399,6 +434,16 @@ public class AnimClipLipSync : LipSyncBase
                 currentWeights[i], targetWeights[i],
                 ref velocityWeights[i], smoothTime);
 
+        // Find top-two active visemes (continuousCrossfade means at most 2 are ever >0)
+        int idx1 = -1, idx2 = -1;
+        float w1 = 0f, w2 = 0f;
+        for (int v = 1; v < VISEME_COUNT; v++)
+        {
+            float w = currentWeights[v];
+            if (w > w1) { idx2 = idx1; w2 = w1; idx1 = v; w1 = w; }
+            else if (w > w2) { idx2 = v; w2 = w; }
+        }
+
         // Rest pose from viseme 0 (silence)
         var restPoses = visemePoses[0];
 
@@ -407,18 +452,27 @@ public class AnimClipLipSync : LipSyncBase
             string name = targetBoneNames[b];
             if (!restPoses.TryGetValue(name, out var rest)) continue;
 
+            // Position: additive delta blend (correct under small-angle/small-displacement assumption)
             Vector3 pos = rest.localPosition;
-            Quaternion rot = rest.localRotation;
-
             for (int v = 1; v < VISEME_COUNT; v++)
             {
                 float w = currentWeights[v];
                 if (w < 0.001f) continue;
-
                 if (!visemePoses[v].TryGetValue(name, out var pose)) continue;
-
                 pos += (pose.localPosition - rest.localPosition) * w;
-                rot = Quaternion.Slerp(rot, pose.localRotation, w);
+            }
+
+            // Rotation: two-viseme Slerp (order-independent, gives full jaw range)
+            // rest → pose1 at w1, then blend toward pose2 with normalised weight.
+            // With continuousCrossfade the weights always sum to ≤1 with at most 2 active.
+            Quaternion rot = rest.localRotation;
+            if (idx1 >= 0 && visemePoses[idx1].TryGetValue(name, out var p1))
+                rot = Quaternion.Slerp(rest.localRotation, p1.localRotation, Mathf.Clamp01(w1));
+            if (idx2 >= 0 && w2 > 0.02f && visemePoses[idx2].TryGetValue(name, out var p2))
+            {
+                float totalW = w1 + w2;
+                rot = Quaternion.Slerp(rot, p2.localRotation,
+                    Mathf.Clamp01(w2 / Mathf.Max(0.001f, totalW)));
             }
 
             targetBones[b].localPosition = pos;
