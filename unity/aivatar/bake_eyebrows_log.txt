@@ -1,0 +1,18 @@
+Face mesh: 19284 verts, 9 submeshes
+Found 2965 vertices in eyebrow region
+Eyebrow UV range: min=(0.01, 0.57), max=(0.99, 0.92)
+  vert[0]: world=(0.00, 1.55, -8.71), uv=(0.01, 0.88)
+  vert[1]: world=(0.00, 1.55, -8.71), uv=(0.01, 0.88)
+  vert[2]: world=(0.00, 1.55, -8.71), uv=(0.01, 0.88)
+  vert[3]: world=(0.00, 1.55, -8.71), uv=(0.02, 0.88)
+  vert[4]: world=(0.00, 1.55, -8.71), uv=(0.01, 0.89)
+  vert[5]: world=(0.00, 1.55, -8.71), uv=(0.02, 0.88)
+  vert[6]: world=(0.00, 1.55, -8.71), uv=(0.01, 0.89)
+  vert[7]: world=(-0.01, 1.55, -8.71), uv=(0.01, 0.89)
+  vert[8]: world=(0.00, 1.55, -8.71), uv=(0.01, 0.89)
+  vert[9]: world=(-0.01, 1.55, -8.71), uv=(0.01, 0.90)
+
+Face texture: T_Head_BC_VT (2048x2048)
+Texture path: Assets/Models/Avatar/Textures/T_Head_BC_VT.PNG
+Readable: False
+Made texture readable

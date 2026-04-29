@@ -53,6 +53,10 @@ public class ConversationClient : MonoBehaviour
     [Serializable]
     private class StatusMessage { public string type; public string state; }
 
+    // ── Events ───────────────────────────────────────────────────────────────
+
+    public event Action<string> OnStateChanged;
+
     // ── State ─────────────────────────────────────────────────────────────────
 
     private ClientWebSocket               _ws;
@@ -308,6 +312,7 @@ public class ConversationClient : MonoBehaviour
 
     private void SetStatusLabel(string state)
     {
+        OnStateChanged?.Invoke(state);
         if (statusLabel != null)
             statusLabel.text = state;
     }

@@ -468,6 +468,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 13778541}
+  - {fileID: 897932059}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -720,6 +721,72 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &897932058
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 897932059}
+  - component: {fileID: 897932061}
+  - component: {fileID: 897932060}
+  m_Layer: 0
+  m_Name: MicrophoneIndicator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &897932059
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 897932058}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 336466102}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0}
+  m_AnchorMax: {x: 0.5, y: 0}
+  m_AnchoredPosition: {x: 0, y: 30}
+  m_SizeDelta: {x: 80, y: 80}
+  m_Pivot: {x: 0.5, y: 0}
+--- !u!114 &897932060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 897932058}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e36004d60e0b7b4398940f748952307, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MicrophoneIndicatorUI
+  conversationClient: {fileID: 333742606}
+  micTexture: {fileID: 2800000, guid: c70970284cee06f46869e8fe4ed3ce44, type: 3}
+  minAlpha: 0.35
+  pulseSpeed: 1.5
+  cornerRadius: 15
+--- !u!225 &897932061
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 897932058}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1001 &898240321
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -25201,18 +25268,10 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7884822823639890056, guid: 027abb5cd69894b43b0bc776194e77a9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1293701142}
-    - targetCorrespondingSourceObject: {fileID: 7884822823639890056, guid: 027abb5cd69894b43b0bc776194e77a9, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1293701144}
   m_SourcePrefab: {fileID: 100100000, guid: 027abb5cd69894b43b0bc776194e77a9, type: 3}
 --- !u!1 &1293701136 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7884822823639890056, guid: 027abb5cd69894b43b0bc776194e77a9, type: 3}
-  m_PrefabInstance: {fileID: 1293701135}
-  m_PrefabAsset: {fileID: 0}
---- !u!137 &1293701137 stripped
-SkinnedMeshRenderer:
-  m_CorrespondingSourceObject: {fileID: 7476012767396068571, guid: 027abb5cd69894b43b0bc776194e77a9, type: 3}
   m_PrefabInstance: {fileID: 1293701135}
   m_PrefabAsset: {fileID: 0}
 --- !u!82 &1293701140
@@ -25339,22 +25398,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AzureSpeechManager
   serverUrl: http://127.0.0.1:5123
-  lipSyncController: {fileID: 1293701144}
---- !u!114 &1293701144
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1293701136}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3c56760cca92f7147963b706542d4295, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MetaHumanLipSync
-  faceMesh: {fileID: 1293701137}
-  lookAheadMs: 150
-  smoothTime: 0.08
+  lipSyncController: {fileID: 0}
 --- !u!1 &1315638094
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,8 +1,8 @@
 using System;
 using UnityEngine;
 
-// Common base so AzureSpeechManager can drive either ProLipSync (blendshapes)
-// or BoneLipSync (bone rotations) without knowing the implementation.
+// Common base so ConversationClient and AzureSpeechManager can drive an
+// AnimClipLipSync (or future implementations) without knowing the details.
 [RequireComponent(typeof(AudioSource))]
 public abstract class LipSyncBase : MonoBehaviour
 {

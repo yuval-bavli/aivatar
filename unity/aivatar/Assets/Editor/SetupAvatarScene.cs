@@ -9,8 +9,9 @@ public static class SetupAvatarScene
     public static void Setup()
     {
         var lipSync = SetupAvatar();
-        SetupConversationClient(lipSync);
+        var client  = SetupConversationClient(lipSync);
         SetupStopButtonUI();
+        SetupMicrophoneIndicator(client);
 
         Debug.Log("[SetupAvatarScene] Scene ready. " +
                   "Start TTS server (:5123), STT server (:8765), then run: " +
@@ -117,6 +118,51 @@ public static class SetupAvatarScene
         txt.alignment = TextAnchor.MiddleCenter;
         txt.color     = Color.white;
         txt.font      = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+    }
+
+    // ── Microphone indicator ──────────────────────────────────────────────────
+
+    private static void SetupMicrophoneIndicator(ConversationClient client)
+    {
+        if (GameObject.Find("MicrophoneIndicator") != null)
+        {
+            Debug.Log("[SetupAvatarScene] MicrophoneIndicator already exists — skipping.");
+            return;
+        }
+
+        const string imgPath = "Assets/Images/microphone.png";
+
+        var canvasGO = GameObject.Find("StopButtonCanvas") ?? CreateOverlayCanvas("MicCanvas");
+
+        var go = new GameObject("MicrophoneIndicator");
+        go.transform.SetParent(canvasGO.transform, false);
+
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin        = new Vector2(0.5f, 0f);
+        rect.anchorMax        = new Vector2(0.5f, 0f);
+        rect.pivot            = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, 30f);
+        rect.sizeDelta        = new Vector2(80f, 80f);
+
+        go.AddComponent<CanvasGroup>();
+
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(imgPath);
+        if (tex == null)
+            Debug.LogWarning($"[SetupAvatarScene] Could not load texture at {imgPath}");
+
+        var indicator = go.AddComponent<MicrophoneIndicatorUI>();
+        indicator.conversationClient = client;
+        indicator.micTexture         = tex;
+    }
+
+    private static GameObject CreateOverlayCanvas(string name)
+    {
+        var go     = new GameObject(name);
+        var canvas = go.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        go.AddComponent<CanvasScaler>();
+        go.AddComponent<GraphicRaycaster>();
+        return go;
     }
 }
 #endif

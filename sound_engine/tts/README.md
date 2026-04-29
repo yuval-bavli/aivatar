@@ -244,9 +244,7 @@ Shared files that remain at `sound_engine/` root (used by both TTS and other too
 | `_types.py` | `VisemeEvent`, `SentenceEvent`, `SpeechSynthesisResult` dataclasses |
 | `wav/wav_encoder.py` | WAV encode/decode + MP3→WAV via pydub |
 | `param_config.py` | `lipsync_params.json` read/write |
-| `audio_analyzer.py` | WAV energy analysis (used by lipsync optimizer) |
-| `sync_evaluator.py` | Viseme-vs-audio sync scoring |
-| `lipsync_iterator.py` | Automated lip sync optimization loop |
+| `audio_analyzer.py` | WAV energy analysis |
 
 ---
 

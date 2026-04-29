@@ -5,11 +5,10 @@ using UnityEngine;
 
 /// <summary>
 /// Captures a PNG frame every ~33ms during AnimClipLipSync playback.
-/// Triggered via agent bridge: printf 'execute LipSyncFrameRecorder.Run' > agent_request.txt
 ///
 /// Frames saved to: <project_root>/debug/lipsync_video/frame_NNNNN_Xms.png
 /// When recording finishes, a manifest (frame_manifest.json) is written listing
-/// each file and its timestamp so sync_pixel_oracle.py can load them in order.
+/// each file and its timestamp.
 /// </summary>
 public static class LipSyncFrameRecorder
 {

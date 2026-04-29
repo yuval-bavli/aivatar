@@ -1,0 +1,10 @@
+Eyebrow transform chain:
+  Eyebrows_M_Natural_CardsMesh_Group0_LOD0: pos=(0.04, 0.00, 0.04), rot=(0.00, 0.00, 0.00), scale=(0.04, 0.04, 0.04)
+  SKM_model4_FaceMesh: pos=(0.00, 0.00, 0.00), rot=(0.00, 0.00, 0.00), scale=(1.00, 1.00, 1.00)
+  SKM_model4_BodyMesh: pos=(0.04, 0.00, -8.61), rot=(270.00, 183.62, 0.00), scale=(1.00, 1.00, 1.00)
+Eyebrow local pos before: (0.04, 0.00, 0.04)
+Avg world normal: (-0.10, -0.11, -0.99)
+Eyebrow material updated with alpha clip re-enabled
+Eyebrow local pos after: (0.04, 0.00, 0.34)
+Eyebrow world pos after: (0.00, 0.34, -8.61)
+Eyebrow world bounds after: center=(-0.01, 2.65, -8.75), size=(0.20, 0.03, 0.08)

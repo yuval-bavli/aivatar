@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Unity MCP server
+
+A Unity MCP server is available — use it to make scene changes, run menu items, read console output, and manage GameObjects directly without asking the user to do it manually. Key tools: `mcp__unity__execute_menu_item`, `mcp__unity__manage_gameobject`, `mcp__unity__manage_scene`, `mcp__unity__read_console`, `mcp__unity__manage_components`, `mcp__unity__find_gameobjects`, `mcp__unity__refresh_unity`.
+
+After editing script files on disk, always call `mcp__unity__refresh_unity` to trigger a domain reload, then check `mcpforunity://editor/state` (`compilation.is_compiling`) before running menu items or other editor actions.
+
+If the Unity MCP server is not responding or tools fail, prompt the user to ensure Unity is open with the MCP-for-Unity package active.
+
 ## Python environment
 
 Always use `.venv` at the repo root — never system Python or bare `pip`:
@@ -122,11 +130,7 @@ STT test with a WAV file:
 
 ## Project architecture
 
-This is an AI avatar system with real-time lip sync. Two parallel runtime targets:
-- **Web**: `avatar.html` (Three.js, Azure Speech SDK in the browser)
-- **Unity**: `unity/aivatar/Assets/` (C# scripts driving blendshapes)
-
-Both are fed by the Python `sound_engine` package.
+This is an AI avatar system with real-time lip sync. The runtime target is Unity (`unity/aivatar/Assets/`, C# scripts driving an animation-clip-based viseme rig), fed by the Python `sound_engine` package.
 
 ### sound_engine
 
@@ -144,26 +148,29 @@ TTS and STT are separate processes with no shared state. See `sound_engine/CLAUD
 ### Unity integration
 
 `unity/aivatar/Assets/Scripts/`:
-- `AzureSpeechManager.cs` — calls TTS server directly (legacy / smoke-test path)
+- `ConversationClient.cs` — WebSocket client to the orchestrator; drives the full conversation loop
+- `AnimClipLipSync.cs` — active lip sync controller; plays Azure visemes against the pre-baked animation clip
+- `LipSyncBase.cs` — abstract base referenced by `ConversationClient.lipSyncController`
 - `AudioVisemeDecoder.cs` — shared helper: base64 WAV → `AudioClip` + `VisemeTimeline`
-- `ConversationClient.cs` — WebSocket client to the orchestrator; drives full conversation loop
-- `StopButtonUI.cs` — wires a uGUI Button to `ConversationClient.Stop()`
-- `ProLipSync.cs` — drives `SkinnedMeshRenderer` blendshapes from `VisemeTimeline`
+- `VisemeTimeline.cs` / `VisemeEvent.cs` — viseme schedule data structures
 - `VisemeMapping.cs` — ScriptableObject mapping Azure viseme ID → blendshape name
-- Credentials from `.env` at repo root, loaded by `EnvLoader.cs` editor script
+- `MicrophoneIndicatorUI.cs` / `StopButtonUI.cs` — uGUI overlay widgets
+- `AivatarLogger.cs` — file-backed logger writing to `debug/logs/unity/`
+- `AzureSpeechManager.cs` + `TestSpeak.cs` — legacy direct-TTS smoke-test path (kept for quick Azure-only validation; not on the production runtime path)
+- Credentials from `.env` at repo root, loaded by `Editor/EnvLoader.cs`
 
-Setup: menu `Aivatar > Setup Avatar Scene` wires the scene (Avatar + ConversationManager + Stop button).
+Setup: menu `Aivatar > Setup Avatar Scene` wires the scene (Avatar + ConversationManager + Stop button + Microphone indicator).
 
 
 ### Live parameter tuning
 
-Edit `sound_engine/lipsync_params.json` while the TTS server is running — it reloads on every `/speak` request:
+Edit `lipsync_params.json` (at repo root) while the TTS server is running — it reloads on every `/speak` request:
 ```json
 {"global_offset_ms": 0, "time_scale": 1.0, "weights": {...}}
 ```
 
 ## Hard constraints
 
-- `audio_offset` in `VisemeEvent` is always in **100-nanosecond ticks** (`ms × 10000`) — Unity `AzureSpeechManager.cs` depends on this unit.
-- Viseme IDs 0–14 in `tts/viseme/arpabet_to_viseme.py` must match Azure IDs used in `VisemeMapping` and `avatar.html`.
+- `audio_offset` in `VisemeEvent` is always in **100-nanosecond ticks** (`ms × 10000`) — Unity `AudioVisemeDecoder.cs` and the lip-sync controllers depend on this unit.
+- Viseme IDs 0–14 in `tts/viseme/arpabet_to_viseme.py` must match the Azure IDs used in `VisemeMapping`.
 - Provider fallback order must stay: ElevenLabs → edge-tts → MockTTS.

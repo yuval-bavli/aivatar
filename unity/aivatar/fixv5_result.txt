@@ -1,0 +1,14 @@
+=== Hair texture in eyebrow UV range (y=512..1024) ===
+Alpha distribution: zero=3984, partial=1306, full=854
+Coverage: 35.2% has some alpha
+Sampling specific pixels in eyebrow UV region:
+  Row y=512: 88/192 pixels with alpha > 0.03
+  Row y=576: 90/192 pixels with alpha > 0.03
+  Row y=640: 95/192 pixels with alpha > 0.03
+  Row y=704: 97/192 pixels with alpha > 0.03
+  Row y=768: 79/192 pixels with alpha > 0.03
+  Row y=832: 70/192 pixels with alpha > 0.03
+  Row y=896: 44/192 pixels with alpha > 0.03
+  Row y=960: 15/192 pixels with alpha > 0.03
+  Row y=1024: 0/192 pixels with alpha > 0.03
+DEBUG: Eyebrows set to fully opaque (no alpha test) for shape debugging

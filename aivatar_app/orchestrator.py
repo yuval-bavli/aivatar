@@ -36,6 +36,7 @@ from log_utils import setup_logger, setup_session_logger    # noqa: E402
 from ai_tools.claude.claude_client import ClaudeChatClient  # noqa: E402
 from ai_tools import ChatMessage                             # noqa: E402
 from aivatar_app.sentence_splitter import SentenceSplitter  # noqa: E402
+from aivatar_app.session_store import Session, SessionStore  # noqa: E402
 
 logger = setup_logger("aivatar_app")
 
@@ -53,6 +54,8 @@ ORCHESTRATOR_PORT = int(os.environ.get("ORCHESTRATOR_PORT", "5124"))
 DEFAULT_PROFILE = os.environ.get("AVATAR_PROFILE", "english_tutor_heb")
 
 PROFILES_DIR = _REPO_ROOT / "profiles"
+MAX_HISTORY_TOKENS = int(os.environ.get("MAX_HISTORY_TOKENS", "30000"))
+SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", str(_REPO_ROOT / "sessions")))
 
 
 # ── Mic capture ───────────────────────────────────────────────────────────────
@@ -128,6 +131,8 @@ class ConversationSession:
         self._stop_event = asyncio.Event()
         self._ai_client: ClaudeChatClient | None = None
         self._http: httpx.AsyncClient | None = None
+        self._store = SessionStore(SESSIONS_DIR)
+        self._session: Session | None = None
 
         # Per-segment speak tracking (replaces the old single _done_event)
         self._pending_speaks: int = 0
@@ -153,9 +158,24 @@ class ConversationSession:
             else "Hi! I'm Sunny, your English teacher! Can you say hello?"
         )
 
-        self._ai_client = ClaudeChatClient(system_prompt=system_prompt)
+        prior = self._store.latest_for_profile(self._profile_name)
+        if prior and prior.messages:
+            logger.info("[session] Resuming session %s (%d messages)", prior.session_id, len(prior.messages))
+            self._session = prior
+            self._ai_client = ClaudeChatClient(
+                system_prompt=system_prompt,
+                summary_context=prior.summary or "",
+            )
+            self._ai_client.set_history([
+                ChatMessage(role=m["role"], content=m["content"])
+                for m in prior.messages
+            ])
+        else:
+            logger.info("[session] Starting new session for profile %s", self._profile_name)
+            self._session = self._store.new(self._profile_name)
+            self._ai_client = ClaudeChatClient(system_prompt=system_prompt)
+
         logger.info("[session] Profile loaded: %s", self._profile_name)
-        logger.info("[session] Greeting: %r", greeting[:80])
 
         session_log = setup_session_logger()
 
@@ -173,13 +193,24 @@ class ConversationSession:
                     recv_task = asyncio.create_task(self._consume_stt(stt_ws))
 
                     try:
-                        logger.info("[session] Delivering greeting...")
-                        await self._status("speaking")
+                        if prior and prior.messages:
+                            logger.info("[session] Generating welcome-back greeting...")
+                            await self._status("speaking")
+                            greeting = await self._generate_welcome_back(system_prompt)
+                        else:
+                            logger.info("[session] Delivering greeting...")
+                            await self._status("speaking")
+
                         session_log.info("Chatbot: %s", greeting)
                         await self._speak(greeting)
                         self._ai_client._history.append(
                             ChatMessage(role="assistant", content=greeting)
                         )
+                        self._session.messages = [
+                            {"role": m.role, "content": m.content}
+                            for m in self._ai_client._history
+                        ]
+                        self._store.save(self._session)
 
                         while not self._stop_event.is_set():
                             turn += 1
@@ -203,6 +234,9 @@ class ConversationSession:
                             reply = await self._think_and_speak(sentence, session_log, turn)
                             logger.info("[session] Turn %d | Tutor : %r", turn, reply[:200])
                             session_log.info("Chatbot: %s", reply)
+                            await self._save_session_state()
+                            if self._should_summarize():
+                                await self._summarize_and_compact(system_prompt)
                     finally:
                         send_task.cancel()
                         recv_task.cancel()
@@ -413,6 +447,93 @@ class ConversationSession:
             await self._ws.send(json.dumps({"type": "error", "message": message}))
         except Exception:
             pass
+
+    # ── Session persistence helpers ───────────────────────────────────────────
+
+    async def _generate_welcome_back(self, system_prompt: str) -> str:
+        """One-shot Claude call to produce a context-aware welcome-back greeting."""
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=self._ai_client._api_key)
+            history = self._ai_client._build_messages()
+            system = (
+                system_prompt
+                + "\n\nGenerate a brief, warm welcome-back greeting that naturally references "
+                "one concrete detail from the prior conversation. 1-2 sentences max. "
+                "Do not say 'welcome back' literally — make it feel natural."
+            )
+            messages = history + [{"role": "user", "content": "[Resume session — generate a welcome-back greeting]"}]
+            response = await client.messages.create(
+                model=self._ai_client.config.model,
+                max_tokens=128,
+                system=system,
+                messages=messages,
+                temperature=0.8,
+            )
+            return response.content[0].text.strip()
+        except Exception as exc:
+            logger.warning("[session] Welcome-back generation failed: %s", exc)
+            return "Welcome back! Let's continue where we left off."
+
+    async def _save_session_state(self) -> None:
+        if self._session is None or self._ai_client is None:
+            return
+        from datetime import datetime, timezone
+        usage = self._ai_client._last_usage
+        if usage:
+            self._session.last_input_tokens = usage.get("input_tokens", 0)
+            self._session.last_output_tokens = usage.get("output_tokens", 0)
+        self._session.messages = [
+            {"role": m.role, "content": m.content}
+            for m in self._ai_client._history
+        ]
+        self._session.updated_at = datetime.now(timezone.utc).isoformat()
+        try:
+            self._store.save(self._session)
+        except Exception as exc:
+            logger.warning("[session] Failed to save session: %s", exc)
+
+    def _should_summarize(self) -> bool:
+        if self._session is None:
+            return False
+        total = self._session.last_input_tokens + self._session.last_output_tokens
+        return total > MAX_HISTORY_TOKENS
+
+    async def _summarize_and_compact(self, system_prompt: str) -> None:
+        if self._ai_client is None or self._session is None:
+            return
+        logger.info(
+            "[session] Summarizing history (%d input + %d output tokens > %d limit)",
+            self._session.last_input_tokens,
+            self._session.last_output_tokens,
+            MAX_HISTORY_TOKENS,
+        )
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=self._ai_client._api_key)
+            history = self._ai_client._build_messages()
+            response = await client.messages.create(
+                model=self._ai_client.config.model,
+                max_tokens=600,
+                system=(
+                    "Summarize the following conversation. Preserve: facts about the user, "
+                    "ongoing topics, the user's level/preferences, lessons covered, names. "
+                    "Aim for ~500 tokens. Output only the summary."
+                ),
+                messages=history,
+                temperature=0.3,
+            )
+            summary = response.content[0].text.strip()
+            logger.info("[session] Summary generated (%d chars)", len(summary))
+            self._ai_client._history.clear()
+            self._ai_client.summary_context = summary
+            self._session.summary = summary
+            self._session.messages = []
+            self._session.last_input_tokens = 0
+            self._session.last_output_tokens = 0
+            await self._save_session_state()
+        except Exception as exc:
+            logger.warning("[session] Summarization failed: %s", exc)
 
 
 # ── WebSocket server ──────────────────────────────────────────────────────────

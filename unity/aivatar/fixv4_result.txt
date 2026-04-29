@@ -1,0 +1,8 @@
+FIXED: Hair tweaked for warmth and density
+Eyebrow mesh bounds: center=(0.05, -3.90, 63.11), size=(5.22, 1.87, 0.87)
+Eyebrow mesh verts=3858, tris=2570
+Eyebrow UV range: min=(0.00, 0.50), max=(0.75, 1.00)
+FIXED: Eyebrows darkened further
+Eyebrow world pos: (0.00, 0.04, -8.61)
+Eyebrow world bounds: (-0.01, 2.35, -8.75), size=(0.20, 0.03, 0.08)
+FIXED: Eyelashes env reflections removed

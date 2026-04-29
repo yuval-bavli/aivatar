@@ -52,8 +52,11 @@ class ClaudeChatClient(ChatClient):
         system_prompt: str = "",
         config: Optional[ChatConfig] = None,
         api_key: Optional[str] = None,
+        summary_context: str = "",
     ):
         super().__init__(system_prompt=system_prompt, config=config)
+        self.summary_context = summary_context
+        self._last_usage: Optional[dict] = None
         self._api_key = (
             api_key
             or os.environ.get("CLAUDE_KEY")
@@ -66,6 +69,10 @@ class ClaudeChatClient(ChatClient):
             )
         if not self.config.model:
             self.config.model = DEFAULT_MODEL
+
+    def set_history(self, messages: list) -> None:
+        """Seed history from a list of ChatMessage objects (for session resume)."""
+        self._history = list(messages)
 
     def _get_async_client(self):
         """Lazy-import the Anthropic SDK and return an async client."""
@@ -91,8 +98,11 @@ class ClaudeChatClient(ChatClient):
         }
         if self.config.top_p != 1.0:
             kwargs["top_p"] = self.config.top_p
-        if self.system_prompt:
-            kwargs["system"] = self.system_prompt
+        system = self.system_prompt
+        if self.summary_context:
+            system = system + "\n\n## Previous conversation summary\n" + self.summary_context
+        if system:
+            kwargs["system"] = system
         if self.config.stop_sequences:
             kwargs["stop_sequences"] = self.config.stop_sequences
         return kwargs
@@ -104,13 +114,14 @@ class ClaudeChatClient(ChatClient):
         response = await client.messages.create(**self._build_kwargs())
         content = response.content[0].text
         self._history.append(ChatMessage(role="assistant", content=content))
+        self._last_usage = {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+        }
         return ChatResponse(
             content=content,
             model=response.model,
-            usage={
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            },
+            usage=self._last_usage,
             stop_reason=response.stop_reason,
         )
 
@@ -123,4 +134,9 @@ class ClaudeChatClient(ChatClient):
             async for text in stream.text_stream:
                 chunks.append(text)
                 yield text
+            final = await stream.get_final_message()
+            self._last_usage = {
+                "input_tokens": final.usage.input_tokens,
+                "output_tokens": final.usage.output_tokens,
+            }
         self._history.append(ChatMessage(role="assistant", content="".join(chunks)))

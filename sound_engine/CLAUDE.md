@@ -24,7 +24,7 @@ ElevenLabs and MockTTS pass `None` for `word_timings` → equal split fallback.
 The phonemizer tokenizes the raw text independently of what the TTS provider returns. Word count may differ (e.g. punctuation stripping). `VisemeScheduler` handles mismatched lengths by falling back to equal split if `len(word_timings) != len(word_phonemes)`.
 
 ### Tick convention
-`audio_offset` is in 100-nanosecond ticks: `offset_ticks = ms * 10_000`. This matches `AzureSpeechManager.cs` line ~115 in the Unity project. Do not change this unit.
+`audio_offset` is in 100-nanosecond ticks: `offset_ticks = ms * 10_000`. This matches the Unity-side decoders (`AudioVisemeDecoder.cs`, `AnimClipLipSync.cs`). Do not change this unit.
 
 ### CMU dict
 Lazy-loaded on first `Phonemizer` call. Downloads ~4 MB from NLTK on first use. Cached in `_cmu_dict` module-level dict for the process lifetime. Returns `None` (not raises) when nltk is missing or download fails — phonemizer then calls `rule_fallback.word_to_arpabet`.
@@ -78,7 +78,7 @@ HTTP server on port 5123. See `tts/README.md` for full docs.
 
 ## What NOT to change
 - `audio_offset` tick unit (must stay 100ns for Unity compatibility)
-- Viseme ID table in `tts/viseme/arpabet_to_viseme.py` (must match Azure IDs 0–14 used in HTML prototype and Unity `VisemeMapping`)
+- Viseme ID table in `tts/viseme/arpabet_to_viseme.py` (must match Azure IDs 0–14 used in Unity's `VisemeMapping`)
 - Provider fallback order (ElevenLabs → edge-tts → mock)
 
 ---

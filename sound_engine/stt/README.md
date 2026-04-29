@@ -78,24 +78,9 @@ To convert any audio file to the right format using ffmpeg:
 ffmpeg -i input.mp3 -ar 16000 -ac 1 -f s16le output.wav
 ```
 
-### Live microphone client
+### Live microphone input
 
-```bash
-.venv/Scripts/python -m sound_engine.stt.mic_client
-.venv/Scripts/python -m sound_engine.stt.mic_client --reset   # re-select mic/language
-```
-
-On first run, prompts you to choose a microphone and language. Your choice is saved to `mic_client_state.json` and reused on subsequent runs (press Enter to accept, or `c` to change).
-
-Example output for *"Hello there. How are you doing today?"*:
-```
-  [listening...]  [transcribing...]
->>> Hello there. How are you doing today?  (342ms)
-  [SENTENCE] Hello there.
-  [SENTENCE] How are you doing today?
-```
-
-`>>>` lines are raw Whisper transcripts. `[SENTENCE]` lines (green) are complete-sentence events — these are what an AI agent should consume.
+The Unity client (`unity/aivatar/Assets/Scripts/ConversationClient.cs`) captures the microphone and streams 16 kHz PCM frames into the orchestrator, which forwards them to this STT server. There is no standalone Python mic client — run Unity to test the full live path.
 
 Languages available in the mic client:
 - `en` — English

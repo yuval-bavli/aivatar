@@ -1,12 +1,8 @@
 .env
-config.js
 
 # UniVRM embedded packages (referenced via git URL in manifest.json instead)
 unity/aivatar/Packages/com.vrmc.gltf/
 unity/aivatar/Packages/com.vrmc.vrm/
-
-# Screenshots captured at runtime
-unity/aivatar/Assets/Screenshots/
 
 # Unity generated directories
 unity/aivatar/Library/
@@ -39,19 +35,8 @@ __pycache__/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
-# Ollama models (large binaries — re-pulled by setup.sh)
-unity_3d_model_improver/ai_models/
+# Runtime debug logs
+debug/logs/
 
-# Material backups created by mat_editor.py
-unity_3d_model_improver/mat_backups/
-
-# debug files 
-debug/
-
-# Unity agent bridge temp files
-unity/aivatar/agent_request.txt
-unity/aivatar/agent_result.txt
-unity/aivatar/bake_eyebrows_log.txt
-unity/aivatar/diagnose_result.txt
-unity/aivatar/fixv*.txt
-unity/aivatar/screenshot_result.txt
+# Persistent conversation sessions (runtime data, not source)
+sessions/

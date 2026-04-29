@@ -1,0 +1,391 @@
+=== SCENE RENDERERS (5) ===
+
+Renderer: SKM_model4_FaceMesh (path: SKM_model4_BodyMesh/SKM_model4_FaceMesh/SKM_model4_FaceMesh)
+  Type: MeshRenderer, Enabled: True, GO Active: True
+  Mat[0]: MI_Face_Skin_Baked_LOD1_VT | Shader: Universal Render Pipeline/Lit | RenderQueue: 2000
+    _BaseMap: T_Head_BC_VT_Brows (2048x2048)
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 1.000)
+    _Cutoff: 0.4
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 0
+    _Blend: 0
+    _Cull: 2 (0=Off,1=Front,2=Back)
+    _BumpMap: T_Head_LOD1_N_VT
+    Keywords: _NORMALMAP
+  Mat[1]: M_Hide | Shader: Universal Render Pipeline/Lit | RenderQueue: 2000
+    _BaseMap: NULL
+    _BaseColor: RGBA(0.100, 0.070, 0.050, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 0
+    _Blend: 0
+    _Cull: 2 (0=Off,1=Front,2=Back)
+    _BumpMap: NULL
+  Mat[2]: MI_Face_LacrimalFluid | Shader: Universal Render Pipeline/Lit | RenderQueue: 3000
+    _BaseMap: UISprite (32x32)
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 0.300)
+    _Cutoff: 0.4
+    _Surface: 1 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: NULL
+    Keywords: _ALPHAPREMULTIPLY_ON, _ALPHATEST_ON, _SURFACE_TYPE_TRANSPARENT
+  Mat[3]: MI_EyeR_Baked | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: BakedEyeR_BC (1024x1024)
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 1.000)
+    _Cutoff: 0.4
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: BakedEyeR_N
+    Keywords: _ALPHATEST_ON, _NORMALMAP, _ENVIRONMENTREFLECTIONS_ON, _SPECULARHIGHLIGHTS_ON
+  Mat[4]: MI_EyeL_Baked | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: BakedEyeL_BC (1024x1024)
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 1.000)
+    _Cutoff: 0.4
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: BakedEyeL_N
+    Keywords: _ALPHATEST_ON, _NORMALMAP, _ENVIRONMENTREFLECTIONS_ON, _SPECULARHIGHLIGHTS_ON
+  Mat[5]: MI_Face_EyeShell | Shader: Universal Render Pipeline/Lit | RenderQueue: 3000
+    _BaseMap: NULL
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 0.020)
+    _Cutoff: 0.4
+    _Surface: 1 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: NULL
+    Keywords: _ALPHAPREMULTIPLY_ON, _ALPHATEST_ON, _SURFACE_TYPE_TRANSPARENT, _ENVIRONMENTREFLECTIONS_ON, _SPECULARHIGHLIGHTS_ON
+  Mat[6]: M_Hide_6 | Shader: Universal Render Pipeline/Lit | RenderQueue: 2000
+    _BaseMap: NULL
+    _BaseColor: RGBA(0.100, 0.070, 0.050, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 0
+    _Blend: 0
+    _Cull: 2 (0=Off,1=Front,2=Back)
+    _BumpMap: NULL
+  Mat[7]: MI_Teeth_Baked | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: T_Teeth_BC (1024x1024)
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 1.000)
+    _Cutoff: 0.4
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: T_Teeth_N
+    Keywords: _ALPHATEST_ON, _NORMALMAP
+  Mat[8]: MI_Face_EyelashesHiLODs | Shader: Aivatar/Hidden | RenderQueue: 3000
+    Keywords: _ALPHAPREMULTIPLY_ON, _NORMALMAP, _SURFACE_TYPE_TRANSPARENT
+  Mesh: SKM_model4_FaceMesh, Submeshes: 9
+
+Renderer: Hair_M_BobMessy_CardsMesh_Group0_LOD0 (path: SKM_model4_BodyMesh/SKM_model4_FaceMesh/Hair_M_BobMessy_CardsMesh_Group0_LOD0)
+  Type: MeshRenderer, Enabled: True, GO Active: True
+  Mat[0]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[1]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[2]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[3]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[4]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[5]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[6]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[7]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mat[8]: haircut | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.650, 0.470, 0.310, 1.000)
+    _Cutoff: 0.15
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _EMISSION, _ENVIRONMENTREFLECTIONS_OFF, _NORMALMAP
+  Mesh: Hair_M_BobMessy_CardsMesh_Group0_LOD0, Submeshes: 1
+
+Renderer: SKM_model4_BodyMesh (path: SKM_model4_BodyMesh/SKM_model4_BodyMesh)
+  Type: SkinnedMeshRenderer, Enabled: True, GO Active: True
+  Mat[0]: MI_Body_Baked_VT 1 | Shader: Universal Render Pipeline/Lit | RenderQueue: 2000
+    _BaseMap: T_Body_BC_VT (1024x1024)
+    _BaseColor: RGBA(1.000, 1.000, 1.000, 1.000)
+    _Cutoff: 0.5
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 0
+    _Blend: 0
+    _Cull: 2 (0=Off,1=Front,2=Back)
+    _BumpMap: T_Body_N_VT
+    Keywords: _NORMALMAP
+  Mesh: SKM_model4_BodyMesh, Submeshes: 1, BlendShapes: 0
+
+Renderer: model4_Outfits (path: SKM_model4_BodyMesh/model4_Outfits/model4_Outfits)
+  Type: SkinnedMeshRenderer, Enabled: True, GO Active: True
+  Mat[0]: MID_M_DG_bodyShapeB_Shirt_70 | Shader: Universal Render Pipeline/Lit | RenderQueue: 2000
+    _BaseMap: NULL
+    _BaseColor: RGBA(0.850, 0.850, 0.850, 1.000)
+    _Cutoff: 0.5
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 0
+    _Blend: 0
+    _Cull: 2 (0=Off,1=Front,2=Back)
+    _BumpMap: NULL
+  Mat[1]: MID_M_DG_bodyShapeB_Short_71 | Shader: Universal Render Pipeline/Lit | RenderQueue: 2000
+    _BaseMap: NULL
+    _BaseColor: RGBA(0.850, 0.850, 0.850, 1.000)
+    _Cutoff: 0.5
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 0
+    _Blend: 0
+    _Cull: 2 (0=Off,1=Front,2=Back)
+    _BumpMap: NULL
+  Mesh: model4_Outfits, Submeshes: 2, BlendShapes: 0
+
+Renderer: Eyebrows_M_Natural_CardsMesh_Group0_LOD0 (path: SKM_model4_BodyMesh/SKM_model4_FaceMesh/Eyebrows_M_Natural_CardsMesh_Group0_LOD0)
+  Type: MeshRenderer, Enabled: False, GO Active: True
+  Mat[0]: Eyebrows | Shader: Universal Render Pipeline/Lit | RenderQueue: 2450
+    _BaseMap: HairCard0_Color_1K (1024x1024)
+    _BaseColor: RGBA(0.160, 0.100, 0.070, 1.000)
+    _Cutoff: 0.5
+    _Surface: 0 (0=Opaque,1=Transparent)
+    _AlphaClip: 1
+    _Blend: 0
+    _Cull: 0 (0=Off,1=Front,2=Back)
+    _BumpMap: HairCard0_Normal_1K
+    Keywords: _ALPHATEST_ON, _NORMALMAP
+  Mesh: Eyebrows_M_Natural_CardsMesh_Group0_LOD0, Submeshes: 1
+
+=== TEXTURE IMPORT SETTINGS ===
+
+Assets/Models/Avatar/Textures/HairCard0_Color_1K.png:
+  textureType: Default
+  alphaSource: FromInput
+  alphaIsTransparency: True
+  sRGBTexture: True
+  maxTextureSize: 2048
+  textureCompression: Compressed
+  isReadable: True
+
+Assets/Models/Avatar/MI_Face_EyelashesHiLODs_BaseColor_8.png:
+  textureType: Default
+  alphaSource: FromInput
+  alphaIsTransparency: False
+  sRGBTexture: True
+  maxTextureSize: 2048
+  textureCompression: Compressed
+  isReadable: False
+
+Assets/Models/Avatar/MI_Face_EyelashesHiLODs_Opacity_8.png:
+  textureType: Default
+  alphaSource: FromInput
+  alphaIsTransparency: False
+  sRGBTexture: True
+  maxTextureSize: 2048
+  textureCompression: Compressed
+  isReadable: False
+
+Assets/Models/Avatar/MI_Face_EyelashesHiLODs_OpacityMask_8.png:
+  textureType: Default
+  alphaSource: FromInput
+  alphaIsTransparency: False
+  sRGBTexture: True
+  maxTextureSize: 2048
+  textureCompression: Compressed
+  isReadable: False
+
+=== EYEBROW SEARCH ===
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/Eyebrows_M_Natural_CardsMesh_Group0_LOD0 (active: True)
+    Has Renderer: MeshRenderer, enabled: False
+    Material: Eyebrows
+
+=== HAIR SEARCH ===
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB5 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA6 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA5 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_12IPV_Hair1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB5 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA6 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA5 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_12IPV_Hair1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair6 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair5 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair4 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair3 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair2 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairC1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB5 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairB1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA6 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA5 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_HairA1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_R_12IPV_Hair1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairC1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB5 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairB1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA6 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA5 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_HairA1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_L_12IPV_Hair1 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair6 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair5 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair4 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair3 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair2 (active: True)
+  Found: SKM_model4_FaceMesh/root/pelvis/spine_01/spine_02/spine_03/spine_04/spine_05/neck_01/neck_02/head/FACIAL_C_FacialRoot/FACIAL_C_Hair1 (active: True)
+  Found: SKM_model4_BodyMesh/SKM_model4_FaceMesh/Hair_M_BobMessy_CardsMesh_Group0_LOD0 (active: True)
+    Has Renderer: MeshRenderer, enabled: True
+    Material: haircut
+    Material: haircut
+    Material: haircut
+    Material: haircut
+    Material: haircut
+    Material: haircut
+    Material: haircut
+    Material: haircut
+    Material: haircut
+
+=== HAIR TEXTURE PIXEL SAMPLING ===
+  Size: 1024x1024
+  Alpha distribution (sampled every 16px): zero=2550, partial=881, full=665
+  Sample pixels (center area):
+    [400,400] RGBA=(0.17,0.11,0.06,0.00)
+    [450,400] RGBA=(0.26,0.16,0.09,1.00)
+    [500,400] RGBA=(0.25,0.16,0.11,0.56)
+    [550,400] RGBA=(0.32,0.22,0.13,0.00)
+    [600,400] RGBA=(0.25,0.15,0.09,0.72)
+    [400,450] RGBA=(0.29,0.17,0.09,0.00)
+    [450,450] RGBA=(0.19,0.13,0.07,0.18)
+    [500,450] RGBA=(0.16,0.11,0.06,0.12)
+    [550,450] RGBA=(0.20,0.13,0.07,0.00)
+    [600,450] RGBA=(0.25,0.16,0.11,0.00)
+    [400,500] RGBA=(0.19,0.13,0.07,0.00)
+    [450,500] RGBA=(0.16,0.11,0.06,0.00)
+    [500,500] RGBA=(0.29,0.19,0.13,1.00)
+    [550,500] RGBA=(0.27,0.17,0.11,0.00)
+    [600,500] RGBA=(0.16,0.11,0.06,0.01)
+    [400,550] RGBA=(0.28,0.18,0.09,0.00)
+    [450,550] RGBA=(0.26,0.16,0.09,1.00)
+    [500,550] RGBA=(0.26,0.17,0.09,0.76)
+    [550,550] RGBA=(0.27,0.18,0.11,0.00)
+    [600,550] RGBA=(0.22,0.14,0.09,0.00)
+    [400,600] RGBA=(0.18,0.12,0.07,0.00)
+    [450,600] RGBA=(0.16,0.11,0.06,0.14)
+    [500,600] RGBA=(0.32,0.20,0.13,1.00)
+    [550,600] RGBA=(0.25,0.16,0.09,0.00)
+    [600,600] RGBA=(0.32,0.20,0.13,0.87)
