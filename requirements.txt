@@ -1,0 +1,14 @@
+# Aivatar — top-level dependencies
+# Install everything into the repo venv:
+#   .venv/Scripts/pip install -r requirements.txt
+#
+# STT requires CUDA torch — install separately first:
+#   .venv/Scripts/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+-r sound_engine/requirements.txt
+-r sound_engine/stt/requirements.txt
+-r ai_tools/requirements.txt
+-r aivatar_app/requirements.txt
+
+# aivatar_ctl.py — server lifecycle management
+psutil>=5.9
