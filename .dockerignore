@@ -1,0 +1,12 @@
+.venv/
+.git/
+unity/
+debug/
+sessions/
+__pycache__/
+*.pyc
+*.pyo
+.env
+node_modules/
+*.egg-info/
+.pytest_cache/

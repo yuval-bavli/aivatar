@@ -29,7 +29,11 @@ def setup_logger(
     console_level: int = logging.INFO,
 ) -> logging.Logger:
     """
-    Configure the root logger with a rotating file handler and a console handler.
+    Configure a named logger with its own rotating file handler.
+
+    The console handler lives on the root logger (added once); the file handler
+    is attached to the named logger so multiple services in the same process each
+    write to their own log file without interfering with each other.
 
     Args:
         name:          Server name used in the log filename (e.g. "tts_server").
@@ -38,9 +42,7 @@ def setup_logger(
         console_level: Minimum level written to stdout (default INFO).
 
     Returns:
-        A named child logger (logging.getLogger(name)) after setting up handlers
-        on the root logger. Call this once at startup; all subsequent
-        logging.getLogger(__name__) calls in the same process inherit the handlers.
+        logging.getLogger(name) with a fresh RotatingFileHandler attached.
     """
     log_dir = Path(log_dir) if log_dir else _DEFAULT_LOG_BASE / name
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -48,29 +50,32 @@ def setup_logger(
     start_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = log_dir / f"{name}_{start_ts}.log"
 
+    # Console handler — attached to root once so all loggers share it.
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
-
-    # Avoid adding duplicate handlers if called more than once in a process
-    if not any(isinstance(h, logging.handlers.RotatingFileHandler) for h in root.handlers):
-        fh = logging.handlers.RotatingFileHandler(
-            log_path,
-            maxBytes=10 * 1024 * 1024,  # 10 MB per file
-            backupCount=5,
-            encoding="utf-8",
-        )
-        fh.setLevel(file_level)
-        fh.setFormatter(logging.Formatter(_FMT, datefmt=_DATE_FMT))
-        root.addHandler(fh)
-
-    if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
-               for h in root.handlers):
+    if not any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        for h in root.handlers
+    ):
         ch = logging.StreamHandler()
         ch.setLevel(console_level)
         ch.setFormatter(logging.Formatter(_FMT, datefmt=_DATE_FMT))
         root.addHandler(ch)
 
+    # File handler — attached to the named logger so each service gets its own file.
     named = logging.getLogger(name)
+    named.setLevel(logging.DEBUG)
+    if not any(isinstance(h, logging.handlers.RotatingFileHandler) for h in named.handlers):
+        fh = logging.handlers.RotatingFileHandler(
+            log_path,
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
+        )
+        fh.setLevel(file_level)
+        fh.setFormatter(logging.Formatter(_FMT, datefmt=_DATE_FMT))
+        named.addHandler(fh)
+
     named.info("Logging started → %s", log_path)
     return named
 

@@ -24,7 +24,6 @@ import time
 from pathlib import Path
 
 import httpx
-import sounddevice as sd
 import websockets
 import websockets.exceptions
 
@@ -42,81 +41,15 @@ logger = setup_logger("aivatar_app")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-SAMPLE_RATE = 16_000
-CHANNELS = 1
-CHUNK_MS = 64
-DTYPE = "int16"
-
 TTS_URL = os.environ.get("TTS_URL", "http://127.0.0.1:5123/speak")
 STT_URL = os.environ.get("STT_URL", "ws://127.0.0.1:8765/ws/transcribe")
-ORCHESTRATOR_HOST = "127.0.0.1"
+ORCHESTRATOR_HOST = os.environ.get("ORCHESTRATOR_HOST", "127.0.0.1")
 ORCHESTRATOR_PORT = int(os.environ.get("ORCHESTRATOR_PORT", "5124"))
 DEFAULT_PROFILE = os.environ.get("AVATAR_PROFILE", "english_tutor_heb")
 
 PROFILES_DIR = _REPO_ROOT / "profiles"
 MAX_HISTORY_TOKENS = int(os.environ.get("MAX_HISTORY_TOKENS", "30000"))
 SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", str(_REPO_ROOT / "sessions")))
-
-
-# ── Mic capture ───────────────────────────────────────────────────────────────
-
-class MicStreamer:
-    """Captures mic audio and puts 16kHz s16le mono PCM frames into an asyncio Queue."""
-
-    def __init__(self, device=None):
-        self._q: asyncio.Queue[bytes] = asyncio.Queue()
-        self._stream = None
-        self._paused = False
-        self._device = device
-        self._loop: asyncio.AbstractEventLoop | None = None
-
-    def start(self, loop: asyncio.AbstractEventLoop) -> None:
-        self._loop = loop
-        chunk_samples = int(SAMPLE_RATE * CHUNK_MS / 1000)
-
-        def _cb(indata, frames, time, status):
-            if status:
-                logger.warning("[mic] %s", status)
-            if not self._paused and self._loop is not None:
-                asyncio.run_coroutine_threadsafe(
-                    self._q.put(bytes(indata[:, 0])), self._loop
-                )
-
-        self._stream = sd.InputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype=DTYPE,
-            blocksize=chunk_samples,
-            device=self._device,
-            callback=_cb,
-        )
-        self._stream.start()
-        logger.info("[mic] Capture started (device=%s)", self._device or "default")
-
-    def pause(self) -> None:
-        self._paused = True
-
-    def resume(self) -> None:
-        # drain frames accumulated during pause to avoid replaying avatar's own voice
-        drained = 0
-        while not self._q.empty():
-            try:
-                self._q.get_nowait()
-                drained += 1
-            except Exception:
-                break
-        if drained:
-            logger.debug("[mic] Drained %d echo frames on resume", drained)
-        self._paused = False
-
-    def stop(self) -> None:
-        if self._stream:
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
-
-    async def get_frame(self) -> bytes:
-        return await self._q.get()
 
 
 # ── Conversation session ──────────────────────────────────────────────────────
@@ -127,7 +60,7 @@ class ConversationSession:
     def __init__(self, websocket, profile_name: str = DEFAULT_PROFILE):
         self._ws = websocket
         self._profile_name = profile_name
-        self._mic = MicStreamer()
+        self._audio_q: asyncio.Queue[bytes] = asyncio.Queue()
         self._stop_event = asyncio.Event()
         self._ai_client: ClaudeChatClient | None = None
         self._http: httpx.AsyncClient | None = None
@@ -179,14 +112,27 @@ class ConversationSession:
 
         session_log = setup_session_logger()
 
-        loop = asyncio.get_event_loop()
-        self._mic.start(loop)
-
         stt_url = f"{STT_URL}?language=mixed"
         turn = 0
         try:
             async with httpx.AsyncClient(timeout=60.0) as http:
                 self._http = http
+
+                # STT loads a large model and can take 30-60s — wait for it
+                for _attempt in range(60):
+                    try:
+                        async with websockets.connect(stt_url, open_timeout=5):
+                            pass
+                        break
+                    except Exception:
+                        if _attempt == 0:
+                            logger.info("[session] Waiting for STT server to be ready (model loading)...")
+                        await asyncio.sleep(2)
+                else:
+                    logger.error("[session] STT unreachable after 120s — aborting session")
+                    await self._send_error("STT server not available")
+                    return
+
                 async with websockets.connect(stt_url, open_timeout=10) as stt_ws:
                     # Persistent mic→STT stream and STT→queue consumer
                     send_task = asyncio.create_task(self._stream_mic_to_stt(stt_ws))
@@ -216,6 +162,16 @@ class ConversationSession:
                             turn += 1
                             logger.info("[session] --- Turn %d: listening ---", turn)
                             await self._status("listening")
+                            # Drain audio frames that arrived during speaking to avoid echo
+                            drained = 0
+                            while not self._audio_q.empty():
+                                try:
+                                    self._audio_q.get_nowait()
+                                    drained += 1
+                                except asyncio.QueueEmpty:
+                                    break
+                            if drained:
+                                logger.debug("[session] Drained %d stale audio frames", drained)
                             # Reset STT session state for a fresh turn
                             try:
                                 await stt_ws.send(json.dumps({"type": "reset"}))
@@ -242,19 +198,25 @@ class ConversationSession:
                         recv_task.cancel()
                         await asyncio.gather(send_task, recv_task, return_exceptions=True)
         finally:
-            self._mic.stop()
             logger.info("[session] Ended after %d turns", turn)
 
     # ── STT WebSocket tasks ───────────────────────────────────────────────────
 
     async def _stream_mic_to_stt(self, stt_ws) -> None:
-        """Forward mic PCM frames to STT WebSocket for the session lifetime."""
+        """Forward PCM frames received from Unity to the STT WebSocket."""
         while True:
-            frame = await self._mic.get_frame()
+            frame = await self._audio_q.get()
             try:
                 await stt_ws.send(frame)
             except websockets.exceptions.ConnectionClosed:
                 break
+
+    def on_audio_frame(self, data: bytes) -> None:
+        """Called by the WebSocket handler when Unity sends a binary audio frame."""
+        try:
+            self._audio_q.put_nowait(data)
+        except asyncio.QueueFull:
+            pass
 
     async def _consume_stt(self, stt_ws) -> None:
         """Read messages from STT WebSocket and route sentences to the queue."""
@@ -294,7 +256,6 @@ class ConversationSession:
 
     async def _think_and_speak(self, user_text: str, session_log, turn: int) -> str:
         """Stream Claude reply sentence-by-sentence, pipeline TTS, fire to Unity."""
-        self._mic.pause()
         self._pending_speaks = 0
         self._all_done_event.set()  # will be cleared on first fire
 
@@ -350,8 +311,6 @@ class ConversationSession:
             logger.exception("[think_and_speak] Error: %s", exc)
             await self._send_error(str(exc))
             return "Sorry, I had a little trouble. Let me try again!"
-        finally:
-            self._mic.resume()
 
     async def _fire_tts(self, text: str) -> bool:
         """Synthesize one sentence and send a speak message to Unity. Returns True on success."""
@@ -384,7 +343,6 @@ class ConversationSession:
 
     async def _speak(self, text: str) -> None:
         """Used for the greeting only. Synthesizes full text, waits for Unity done."""
-        self._mic.pause()
         self._done_event.clear()
         try:
             t0 = time.perf_counter()
@@ -410,8 +368,6 @@ class ConversationSession:
         except Exception as exc:
             logger.exception("[speak] Greeting TTS error: %s", exc)
             await self._send_error(str(exc))
-        finally:
-            self._mic.resume()
 
     # ── Unity message handling ────────────────────────────────────────────────
 
@@ -547,6 +503,7 @@ async def _handle_client(websocket) -> None:
     try:
         async for raw in websocket:
             if isinstance(raw, bytes):
+                session.on_audio_frame(raw)
                 continue
             logger.debug("[orchestrator] Unity msg: %s", raw[:120])
             session.on_unity_message(raw)

@@ -175,7 +175,8 @@ if __name__ == '__main__':
     # Warm up aligners and synthesizer at startup so the first request isn't slow
     SpeechHandler._load_aligners()
     SpeechHandler.get_synthesizer()
-    server = HTTPServer(('127.0.0.1', port), SpeechHandler)
+    host = os.environ.get('TTS_HOST', '127.0.0.1')
+    server = HTTPServer((host, port), SpeechHandler)
     logger.info("TTS server ready — waiting for requests")
     try:
         server.serve_forever()

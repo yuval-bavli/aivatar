@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY sound_engine/requirements.txt sound_engine/requirements.txt
+RUN pip install --no-cache-dir -r sound_engine/requirements.txt
+
+RUN python -c "import nltk; nltk.download('cmudict', quiet=True)"
+
+COPY sound_engine/ sound_engine/
+COPY log_utils/ log_utils/
+COPY lipsync_params.json .
+
+RUN mkdir -p debug/logs/tts_server
+
+EXPOSE 5123
+
+ENV TTS_HOST=0.0.0.0
+
+CMD ["python", "-m", "sound_engine.tts.server"]

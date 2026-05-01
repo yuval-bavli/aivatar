@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -26,8 +27,15 @@ public class ConversationClient : MonoBehaviour
     private const string TAG = "ConversationClient";
     private static ConversationClient _instance;
 
+    private const int MicSampleRate = 16000;
+    private const int MicChunkMs    = 64;
+
     [Header("Orchestrator")]
     public string orchestratorUrl = "ws://127.0.0.1:5124";
+
+    [Header("Microphone")]
+    [Tooltip("Partial device name to match (case-insensitive). Leave empty to use Unity's default (Microphone.devices[0]).")]
+    public string microphoneDevice = "";
 
     [Header("References")]
     public LipSyncBase lipSyncController;
@@ -72,6 +80,15 @@ public class ConversationClient : MonoBehaviour
     private int                           _speakCount;
 
     private int                           _connectAttempt;
+
+    // Mic capture (Microphone API calls stay on main thread via coroutine)
+    private AudioClip                              _micClip;
+    private int                                    _micLastSample;
+    private bool                                   _micActive;
+    private CancellationTokenSource                _micCts;
+    private Coroutine                              _micCoroutine;
+    private string                                 _micDeviceResolved;
+    private readonly ConcurrentQueue<byte[]>       _micSendQueue = new();
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -247,9 +264,15 @@ public class ConversationClient : MonoBehaviour
                 case "status":
                     var status = JsonUtility.FromJson<StatusMessage>(raw);
                     AivatarLogger.Log(TAG, $"[status] Orchestrator state -> {status?.state}");
-                    // On "listening", clear any stale queued segments
                     if (status?.state == "listening")
+                    {
                         _speakQueue.Clear();
+                        StartMic();
+                    }
+                    else
+                    {
+                        StopMic();
+                    }
                     SetStatusLabel(status?.state ?? "");
                     break;
 
@@ -317,6 +340,96 @@ public class ConversationClient : MonoBehaviour
             statusLabel.text = state;
     }
 
+    // ── Mic capture ───────────────────────────────────────────────────────────
+    // Microphone.* must be called on the main thread — a Coroutine handles
+    // polling; a background Task drains the resulting queue and sends over WS.
+
+    private void StartMic()
+    {
+        if (_micActive) return;
+
+        // Resolve device on the main thread — log all available for diagnostics
+        var devices = Microphone.devices;
+        AivatarLogger.Log(TAG, $"Available mic devices: [{string.Join(", ", devices)}]");
+
+        _micDeviceResolved = null;
+        if (!string.IsNullOrEmpty(microphoneDevice))
+        {
+            _micDeviceResolved = System.Array.Find(devices,
+                d => d.IndexOf(microphoneDevice, System.StringComparison.OrdinalIgnoreCase) >= 0);
+            if (_micDeviceResolved == null)
+                AivatarLogger.Warn(TAG, $"Mic '{microphoneDevice}' not found — using default");
+        }
+
+        _micClip = Microphone.Start(_micDeviceResolved, true, 1, MicSampleRate);
+        AivatarLogger.Log(TAG, $"Mic started — device={_micDeviceResolved ?? "default (index 0)"}");
+
+        _micActive = true;
+        _micCts    = new CancellationTokenSource();
+        _micCoroutine = StartCoroutine(MicPollCoroutine());
+        _ = MicSendLoopAsync(_micCts.Token);
+    }
+
+    private void StopMic()
+    {
+        if (!_micActive) return;
+        _micActive = false;
+        _micCts?.Cancel();
+        if (_micCoroutine != null) { StopCoroutine(_micCoroutine); _micCoroutine = null; }
+        Microphone.End(_micDeviceResolved);
+        while (_micSendQueue.TryDequeue(out _)) {}
+        AivatarLogger.Log(TAG, "Mic stopped");
+    }
+
+    // Runs on main thread — polls Microphone clip and queues PCM chunks.
+    private IEnumerator MicPollCoroutine()
+    {
+        int chunkSamples = MicSampleRate * MicChunkMs / 1000;
+        var floatBuf     = new float[chunkSamples];
+
+        // Wait until the device actually starts writing samples
+        while (_micActive && Microphone.GetPosition(_micDeviceResolved) == 0)
+            yield return null;
+
+        _micLastSample = 0;
+
+        while (_micActive)
+        {
+            int pos  = Microphone.GetPosition(_micDeviceResolved);
+            int cap  = _micClip != null ? _micClip.samples : 0;
+            int avail = cap > 0 ? (pos - _micLastSample + cap) % cap : 0;
+
+            if (avail >= chunkSamples)
+            {
+                _micClip.GetData(floatBuf, _micLastSample);
+                _micLastSample = (_micLastSample + chunkSamples) % cap;
+
+                var chunk = new byte[chunkSamples * 2];
+                for (int i = 0; i < chunkSamples; i++)
+                {
+                    short s = (short)Mathf.Clamp(floatBuf[i] * 32767f, -32768f, 32767f);
+                    chunk[i * 2]     = (byte)(s & 0xFF);
+                    chunk[i * 2 + 1] = (byte)((s >> 8) & 0xFF);
+                }
+                _micSendQueue.Enqueue(chunk);
+            }
+
+            yield return null; // poll every frame; chunk is 64 ms so we accumulate naturally
+        }
+    }
+
+    // Runs on background thread — drains the queue and sends binary frames.
+    private async Task MicSendLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            if (_micSendQueue.TryDequeue(out var chunk))
+                await SendBinaryAsync(chunk, ct).ConfigureAwait(false);
+            else
+                await Task.Delay(10, ct).ConfigureAwait(false);
+        }
+    }
+
     // ── Send ──────────────────────────────────────────────────────────────────
 
     private async Task SendJsonAsync(string json)
@@ -328,7 +441,7 @@ public class ConversationClient : MonoBehaviour
         }
 
         AivatarLogger.Log(TAG, $"Sending to orchestrator: {json}");
-        var bytes = Encoding.UTF8.GetBytes(json);
+        var bytes  = Encoding.UTF8.GetBytes(json);
         await _sendLock.WaitAsync(_cts.Token);
         try
         {
@@ -349,6 +462,29 @@ public class ConversationClient : MonoBehaviour
         }
     }
 
+    private async Task SendBinaryAsync(byte[] data, CancellationToken ct = default)
+    {
+        if (_ws?.State != WebSocketState.Open) return;
+        await _sendLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await _ws.SendAsync(
+                new ArraySegment<byte>(data),
+                WebSocketMessageType.Binary,
+                endOfMessage: true,
+                cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception e)
+        {
+            AivatarLogger.Warn(TAG, $"SendBinaryAsync failed: {e.Message}");
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
+    }
+
     // ── Stop ──────────────────────────────────────────────────────────────────
 
     public void Stop()
@@ -361,6 +497,7 @@ public class ConversationClient : MonoBehaviour
     private void StopSession()
     {
         AivatarLogger.Log(TAG, "StopSession — cancelling tasks and closing WebSocket");
+        StopMic();
         _cts?.Cancel();
         _ws?.Dispose();
         _ws = null;

@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY aivatar_app/requirements.txt aivatar_app/requirements.txt
+COPY ai_tools/requirements.txt ai_tools/requirements.txt
+RUN pip install --no-cache-dir \
+    -r aivatar_app/requirements.txt \
+    -r ai_tools/requirements.txt
+
+COPY aivatar_app/ aivatar_app/
+COPY ai_tools/ ai_tools/
+COPY log_utils/ log_utils/
+COPY profiles/ profiles/
+
+RUN mkdir -p debug/logs/aivatar_app sessions
+
+EXPOSE 5124
+
+ENV ORCHESTRATOR_HOST=0.0.0.0
+ENV TTS_URL=http://tts:5123/speak
+ENV STT_URL=ws://stt:8765/ws/transcribe
+
+CMD ["python", "-m", "aivatar_app"]

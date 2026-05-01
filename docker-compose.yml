@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  tts:
+    build:
+      context: .
+      dockerfile: Dockerfile.tts
+    ports:
+      - "5123:5123"
+    environment:
+      TTS_HOST: "0.0.0.0"
+      ELEVENLABS_API_KEY: "${ELEVENLABS_API_KEY:-}"
+    volumes:
+      - ./debug/logs:/app/debug/logs
+
+  stt:
+    build:
+      context: .
+      dockerfile: Dockerfile.stt
+    ports:
+      - "8765:8765"
+    environment:
+      STT_HOST: "0.0.0.0"
+    volumes:
+      - ./debug/logs:/app/debug/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  aivatar_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.aivatar_app
+    ports:
+      - "5124:5124"
+    environment:
+      ORCHESTRATOR_HOST: "0.0.0.0"
+      TTS_URL: "http://tts:5123/speak"
+      STT_URL: "ws://stt:8765/ws/transcribe"
+      CLAUDE_KEY: "${CLAUDE_KEY}"
+      AVATAR_PROFILE: "${AVATAR_PROFILE:-english_tutor_heb}"
+    volumes:
+      - ./debug/logs:/app/debug/logs
+      - ./sessions:/app/sessions
+      - ./profiles:/app/profiles:ro
+    depends_on:
+      - tts
+      - stt
