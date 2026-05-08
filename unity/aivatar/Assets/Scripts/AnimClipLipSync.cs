@@ -377,6 +377,17 @@ public class AnimClipLipSync : LipSyncBase
                 targetWeights[curId] = 1f - t;
                 // targetWeights[0] stays 0; SmoothDamp decays to rest naturally
             }
+            else if (curId == 0)
+            {
+                // Open-from-silence: hold the rest pose until close to nextMs,
+                // then ramp the next viseme up over closeOutMs. Mirror of the
+                // close-to-silence case — without this the mouth ramps up across
+                // the whole audible-silence gap (looks like talking through pauses).
+                float windowStart = Mathf.Max(curMs, nextMs - closeOutMs);
+                float t = Mathf.Clamp01((elapsedMs - windowStart) / Mathf.Max(1f, nextMs - windowStart));
+                targetWeights[nextId] = t;
+                // targetWeights[0] (silence) stays 0 → rest pose
+            }
             else
             {
                 // Continuous crossfade across the whole gap — mouth is always in motion

@@ -1,6 +1,73 @@
 # Lip Sync — Investigation & State of Play
 
-**Last updated: 2026-04-25 (Attempt 12 — phoneme-level MMS_FA alignment + Slerp rotation fix + sync oracle).**
+**Last updated: 2026-05-01 (Attempt 13 — audio-aware silence handling for inter-sentence pauses).**
+
+> **Attempt 13 update (2026-05-01)**: User reported the mouth keeps moving during the
+> sub-second pause after a period (e.g. between sentences). Two stacked causes:
+>
+> **Root cause 1 — Docker TTS server has no numpy/torch.** The `Dockerfile.tts` only
+> installs `sound_engine/requirements.txt` (edge-tts, nltk, requests, dotenv, pydub) —
+> no numpy, no torchaudio. So `PhonemeAligner` and `WordAligner` both fail to load and
+> the server falls back to `schedule_sentences()`. (Confirmed in
+> `debug/logs/tts_server/tts_server_*.log`: `PhonemeAligner init failed (No module
+> named 'numpy') — disabled`.)
+>
+> **Root cause 2 — `schedule_sentences` distributes phonemes across the *boundary*
+> window, not the *speech* window.** edge-tts SentenceBoundary durations include the
+> trailing silence between sentences. For "The grass is green. Say it with me, the
+> grass is green.": boundary 1 = 100–2088ms, boundary 2 = 2038–4988ms. Actual audible
+> speech (RMS analysis): 200–1190ms then 2300–4140ms. The scheduler stretches sentence
+> 1's 12 phonemes across 1988ms (≈165ms each) instead of the actual 1000ms (≈83ms
+> each), so the last phonemes of "green" land at ~1925ms — well inside the audible
+> silence (1190–2300ms). The Unity `continuousCrossfade` path then ramps toward the
+> next sentence's phonemes across the whole 1100ms gap, so the mouth keeps animating
+> during the pause.
+>
+> **Fix (Python)** — `sound_engine/tts/speech_synthesizer.py`:
+> - New `_clip_boundaries_to_audio()`: runs `audio_analyzer.analyze_wav()` (pure
+>   stdlib, no numpy needed) to detect speech regions, then tightens each edge-tts
+>   sentence boundary to the speech regions whose centers fall inside it. Speech
+>   regions are claimed by the first matching boundary so overlapping edge-tts
+>   boundaries don't double-claim.
+> - New `_inject_pause_silences()`: backstop for any scheduling path — inserts a v=0
+>   event at the start of any silence region ≥ 200ms (excluding the leading/trailing
+>   bookends, which the scheduler already emits). Applied after all three scheduling
+>   paths (`schedule_phoneme_timings`, `schedule_sentences`, `schedule`).
+> - `_build_visemes()` now takes `wav_bytes` so post-processing can run.
+>
+> **Fix (Unity)** — `unity/aivatar/Assets/Scripts/AnimClipLipSync.cs`:
+> Added a `curId == 0` branch to the `continuousCrossfade` path. Mirror of the
+> existing `nextId == 0` close-out: when the *current* viseme is silence and the
+> *next* is non-silence, hold the rest pose until `nextMs - closeOutMs`, then ramp
+> the next viseme up linearly over `closeOutMs`. Without this, even with explicit
+> silence events the mouth would still ramp the next viseme up across the whole
+> silence gap.
+>
+> **Verified output** (post-fix, "The grass is green. Say it with me, the grass is green."):
+> ```
+>  1109.5 ms  v=8     N — last phoneme of "green"
+>  1190.0 ms  v=0     silence at start of inter-sentence pause (matches RMS exactly)
+>  2300.0 ms  v=7     S — first phoneme of "Say" (matches phoneme aligner ground truth)
+> ```
+> Sentence 1 phonemes now cleanly fit 200–1190ms (was 100–2088ms with the boundary
+> stretch). The 1110ms inter-sentence silence is honest in the timeline; Unity's
+> open-from-silence branch keeps the mouth at rest until 2150ms, ramps to S by 2300ms.
+>
+> **Changed files**:
+> - `sound_engine/tts/speech_synthesizer.py` — `_clip_boundaries_to_audio`,
+>   `_inject_pause_silences`, and `_build_visemes(wav_bytes=...)` plumbing.
+> - `unity/aivatar/Assets/Scripts/AnimClipLipSync.cs` — added `curId == 0` branch in
+>   `UpdateTargets()` (mirror of `nextId == 0` close-out).
+>
+> **Note**: This works *without* the phoneme aligner. If numpy/torch are added to the
+> Docker image later, `PhonemeAligner` becomes the primary path and these fixes
+> become belt-and-suspenders (still useful: silence injection from audio is a
+> correctness backstop, and the Unity open-from-silence branch is needed regardless
+> of how silence events get into the timeline).
+
+---
+
+**Previous: 2026-04-25 (Attempt 12 — phoneme-level MMS_FA alignment + Slerp rotation fix + sync oracle).**
 
 > **Attempt 12 update (2026-04-25)**: Three stacked issues resolved simultaneously.
 >

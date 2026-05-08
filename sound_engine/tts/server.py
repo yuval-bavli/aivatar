@@ -125,8 +125,9 @@ class SpeechHandler(BaseHTTPRequestHandler):
             params = load_params()
             synth.global_offset_ms = params.global_offset_ms
             synth.time_scale = params.time_scale
-            logger.debug("Params: global_offset_ms=%s time_scale=%s",
-                         params.global_offset_ms, params.time_scale)
+            synth.tts_rate_pct = params.tts_rate_pct
+            logger.debug("Params: global_offset_ms=%s time_scale=%s tts_rate_pct=%s",
+                         params.global_offset_ms, params.time_scale, params.tts_rate_pct)
 
             t0 = time.perf_counter()
             result = synth.speak_text(text)

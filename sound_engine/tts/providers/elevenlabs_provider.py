@@ -33,6 +33,9 @@ class ElevenLabsProvider:
         except ImportError:
             raise RuntimeError("requests is not installed. Run: pip install requests")
 
+        from ..expression import to_elevenlabs_v3
+        styled_text = to_elevenlabs_v3(text)
+
         url = self.API_URL.format(voice_id=self.voice_id)
         headers = {
             "xi-api-key": self.api_key,
@@ -40,9 +43,14 @@ class ElevenLabsProvider:
             "Accept": "audio/mpeg",
         }
         payload = {
-            "text": text,
-            "model_id": "eleven_monolingual_v1",
-            "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+            "text": styled_text,
+            "model_id": "eleven_v3",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "style": 0.5,
+                "use_speaker_boost": True,
+            },
         }
 
         resp = requests.post(url, json=payload, headers=headers, timeout=30)

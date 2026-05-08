@@ -85,10 +85,11 @@ class ConversationSession:
 
         system_prompt = (profile_dir / "system_prompt.md").read_text(encoding="utf-8")
         greeting_file = profile_dir / "greeting.txt"
-        greeting = (
+
+        fallback_greeting = (
             greeting_file.read_text(encoding="utf-8").strip()
             if greeting_file.exists()
-            else "Hi! I'm Sunny, your English teacher! Can you say hello?"
+            else "Hi! I'm Sunny, your English teacher! Can you say hello? Say: Hello!"
         )
 
         prior = self._store.latest_for_profile(self._profile_name)
@@ -144,8 +145,9 @@ class ConversationSession:
                             await self._status("speaking")
                             greeting = await self._generate_welcome_back(system_prompt)
                         else:
-                            logger.info("[session] Delivering greeting...")
+                            logger.info("[session] Generating new-session greeting...")
                             await self._status("speaking")
+                            greeting = await self._generate_new_greeting(system_prompt, fallback_greeting)
 
                         session_log.info("Chatbot: %s", greeting)
                         await self._speak(greeting)
@@ -406,6 +408,31 @@ class ConversationSession:
 
     # ── Session persistence helpers ───────────────────────────────────────────
 
+    async def _generate_new_greeting(self, system_prompt: str, fallback: str) -> str:
+        """One-shot Claude call to produce the opening greeting for a new session."""
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=self._ai_client._api_key)
+            system = (
+                system_prompt
+                + "\n\nGenerate the opening greeting for a new session. "
+                "Follow the 'Example Opening' in the instructions above. "
+                "Keep it to 1-2 sentences max. "
+                "IMPORTANT: Always end with a direct question or prompt that invites the child to respond "
+                "(e.g. 'Can you say hello?' or 'Say: Hello!')."
+            )
+            response = await client.messages.create(
+                model=self._ai_client.config.model,
+                max_tokens=100,
+                system=system,
+                messages=[{"role": "user", "content": "[New session — generate opening greeting]"}],
+                temperature=0.8,
+            )
+            return response.content[0].text.strip()
+        except Exception as exc:
+            logger.warning("[session] New-session greeting generation failed: %s", exc)
+            return fallback
+
     async def _generate_welcome_back(self, system_prompt: str) -> str:
         """One-shot Claude call to produce a context-aware welcome-back greeting."""
         try:
@@ -416,7 +443,9 @@ class ConversationSession:
                 system_prompt
                 + "\n\nGenerate a brief, warm welcome-back greeting that naturally references "
                 "one concrete detail from the prior conversation. 1-2 sentences max. "
-                "Do not say 'welcome back' literally — make it feel natural."
+                "Do not say 'welcome back' literally — make it feel natural. "
+                "IMPORTANT: Always end with a question or prompt that invites the child to respond — "
+                "for example: 'Can you still remember how to say it?' or 'Can you try saying it again?'"
             )
             messages = history + [{"role": "user", "content": "[Resume session — generate a welcome-back greeting]"}]
             response = await client.messages.create(
@@ -429,7 +458,7 @@ class ConversationSession:
             return response.content[0].text.strip()
         except Exception as exc:
             logger.warning("[session] Welcome-back generation failed: %s", exc)
-            return "Welcome back! Let's continue where we left off."
+            return "Welcome back! Let's continue where we left off. Can you say hello?"
 
     async def _save_session_state(self) -> None:
         if self._session is None or self._ai_client is None:

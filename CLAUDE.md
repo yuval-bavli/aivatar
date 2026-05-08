@@ -34,63 +34,37 @@ Each service writes logs to its own subdirectory under `debug/logs/`, named `{se
 
 Check these first when diagnosing runtime errors — tracebacks and exceptions are written at DEBUG level to the file even when not shown on the console.
 
-## Server management workflow after code changes
+## Server management (Docker — primary)
 
-After modifying any server file (`sound_engine/`, `aivatar_app/`, or `aivatar_ctl.py`):
-
-1. Run `--status` to check the current state:
-   ```bash
-   .venv/Scripts/python aivatar_ctl.py --status
-   ```
-2. If the overall status is **Running** or **Partially-running**, immediately restart so the changes take effect:
-   ```bash
-   .venv/Scripts/python aivatar_ctl.py --restart
-   ```
-3. If the overall status is **Stopped**, no restart is needed — leave the servers stopped.
-
-## Server management (aivatar_ctl)
-
-`aivatar_ctl.py` manages all three servers from a single command.
-Requires `psutil` — already installed in the venv.
+The servers run as Docker containers. Always use Docker to start, stop, and restart:
 
 ```bash
-.venv/Scripts/python aivatar_ctl.py --status   # show which servers are running
-.venv/Scripts/python aivatar_ctl.py --start    # start any servers not already running
-.venv/Scripts/python aivatar_ctl.py --restart  # stop all, then start fresh (picks up latest code)
-.venv/Scripts/python aivatar_ctl.py --exit     # graceful stop (force-kills after 6 s)
+docker compose ps                        # show running containers
+docker compose up -d                     # start all (first time or after full stop)
+docker compose down                      # stop all containers
+docker compose logs -f tts               # follow TTS logs (also: stt, aivatar_app)
 ```
 
-Servers are started in dependency order (TTS → STT → orchestrator) and detected by TCP port.
-Servers are background processes; their stdout/stderr go to the existing `debug/logs/` directories.
-
-## Running the servers manually
-
+**After modifying Python source files** (`sound_engine/`, `aivatar_app/`):
 ```bash
-# TTS — HTTP on port 5123
-.venv/Scripts/python -m sound_engine.tts.server
+# Rebuild only the affected service(s) — cheapest
+docker compose build tts && docker compose up -d tts
+docker compose build aivatar_app && docker compose up -d aivatar_app
 
-# STT — WebSocket on port 8765
-.venv/Scripts/python -m sound_engine.stt.server
-
-# Health check STT
-curl http://localhost:8765/health
+# Or rebuild and restart everything at once
+docker compose up -d --build
 ```
+
+**Profile files** (`profiles/`) are volume-mounted — changes take effect immediately on the next conversation, **no rebuild needed**.
+
+Services and ports:
+- `tts` → port 5123 (HTTP `POST /speak`)
+- `stt` → port 8765 (WebSocket `/ws/transcribe`)
+- `aivatar_app` → port 5124 (WebSocket, Unity connects here)
 
 ## Running the full conversation loop (AI tutor avatar)
 
-Use `aivatar_ctl.py --start` (above) or start three processes manually, then press Play in Unity:
-
-```bash
-# Terminal 1 — TTS
-.venv/Scripts/python -m sound_engine.tts.server
-
-# Terminal 2 — STT  (needs CUDA GPU + separate torch install, see above)
-.venv/Scripts/python -m sound_engine.stt.server
-
-# Terminal 3 — Orchestrator (bridges STT → Claude → TTS → Unity)
-.venv/Scripts/pip install -r aivatar_app/requirements.txt   # first time only
-.venv/Scripts/python -m aivatar_app
-```
+Start containers with Docker (above), then press Play in Unity.
 
 In Unity: open `unity/aivatar`, run `Aivatar > Setup Avatar Scene` (once), then press Play.  
 The avatar greets you; speak into your mic; conversation continues until you press Esc or the Stop button.

@@ -25,8 +25,9 @@ class EdgeTTSProvider:
     DEFAULT_VOICE = "en-US-AriaNeural"
     TICKS_TO_MS = 1.0 / 10_000.0  # 100ns ticks → ms
 
-    def __init__(self, voice: str = DEFAULT_VOICE):
+    def __init__(self, voice: str = DEFAULT_VOICE, base_rate_pct: float = 0.0):
         self.voice = voice
+        self.base_rate_pct = base_rate_pct
 
     async def synthesize_async(self, text: str) -> Tuple[bytes, float, List[Tuple[str, float, float]]]:
         """
@@ -45,7 +46,9 @@ class EdgeTTSProvider:
         mp3_chunks: List[bytes] = []
         sentence_boundaries: List[Tuple[str, float, float]] = []  # (text, start_ms, dur_ms)
 
-        communicate = edge_tts.Communicate(text, self.voice)
+        from ..expression import to_edge_tts
+        rendered_text, prosody = to_edge_tts(text, self.base_rate_pct)
+        communicate = edge_tts.Communicate(rendered_text, self.voice, **prosody)
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 mp3_chunks.append(chunk["data"])

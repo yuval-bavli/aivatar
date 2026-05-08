@@ -33,6 +33,10 @@ class LipSyncParams:
     vowel_weight: float = 1.5
     consonant_weight: float = 0.6
 
+    # TTS speech rate for edge-tts: applied as a base rate before any style adjustment.
+    # Negative = slower (e.g. -20 means -20% of normal speed). 0 = no adjustment.
+    tts_rate_pct: float = -20.0
+
     # Unity AnimClipLipSync params
     smoothAdvanceMs: float = 40.0
     smoothTime: float = 0.03
