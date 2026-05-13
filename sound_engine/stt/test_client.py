@@ -4,10 +4,11 @@ Streams a .wav file to the server in real-time, simulating a microphone.
 Prints all messages received (VAD events and transcript results).
 
 Usage:
-    .venv/Scripts/python -m sound_engine.stt.test_client audio.wav
-    .venv/Scripts/python -m sound_engine.stt.test_client audio.wav --language he
-    .venv/Scripts/python -m sound_engine.stt.test_client audio.wav --language mixed
-    .venv/Scripts/python -m sound_engine.stt.test_client audio.wav --url ws://localhost:8765/ws/transcribe
+    python -m sound_engine.stt.test_client audio.wav
+    python -m sound_engine.stt.test_client audio.wav --language he
+    python -m sound_engine.stt.test_client audio.wav --language mixed
+    python -m sound_engine.stt.test_client audio.wav --url ws://localhost:8765/ws/transcribe
+    # Windows: replace .venv/bin/ with .venv/Scripts/
 """
 
 import argparse

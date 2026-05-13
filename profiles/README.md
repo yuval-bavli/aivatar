@@ -17,7 +17,8 @@ profiles/
 Set the `AVATAR_PROFILE` environment variable before starting the orchestrator:
 
 ```bash
-AVATAR_PROFILE=english_tutor_heb .venv/Scripts/python -m aivatar_app
+AVATAR_PROFILE=english_tutor_heb python -m aivatar_app        # macOS/Linux
+set AVATAR_PROFILE=english_tutor_heb && python -m aivatar_app  # Windows
 ```
 
 Default profile (when the variable is unset): `english_tutor_heb`.

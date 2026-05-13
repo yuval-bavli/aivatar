@@ -15,7 +15,7 @@ public static class SetupAvatarScene
 
         Debug.Log("[SetupAvatarScene] Scene ready. " +
                   "Start TTS server (:5123), STT server (:8765), then run: " +
-                  ".venv/Scripts/python -m aivatar_app  — then press Play.");
+                  "python -m aivatar_app  — then press Play. (activate venv first)");
     }
 
     // ── Avatar (lipSync + legacy TTS tester) ─────────────────────────────────

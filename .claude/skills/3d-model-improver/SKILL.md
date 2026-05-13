@@ -37,7 +37,7 @@ The system tries each approach for a limited number of iterations. After the lim
 **How to run:**
 ```bash
 cd unity_3d_model_improver
-../../.venv/Scripts/python.exe metahuman_fixer.py [--eyelash-cutoff 0.45] [--hair-smoothness 0.45]
+../../python metahuman_fixer.py [--eyelash-cutoff 0.45] [--hair-smoothness 0.45]
 ```
 
 **What it does (one-shot):**
@@ -56,11 +56,11 @@ cd unity_3d_model_improver
 **How to run:**
 ```bash
 cd unity_3d_model_improver
-../../.venv/Scripts/python.exe texture_editor.py fix-all
+../../python texture_editor.py fix-all
 # Or individually:
-../../.venv/Scripts/python.exe texture_editor.py fix-eyelashes --thin-factor 0.5
-../../.venv/Scripts/python.exe texture_editor.py fix-eyebrows --strength 0.35 --color 0.28,0.20,0.14
-../../.venv/Scripts/python.exe texture_editor.py fix-hair --contrast 1.2
+../../python texture_editor.py fix-eyelashes --thin-factor 0.5
+../../python texture_editor.py fix-eyebrows --strength 0.35 --color 0.28,0.20,0.14
+../../python texture_editor.py fix-hair --contrast 1.2
 ```
 
 **What it does:**
@@ -70,7 +70,7 @@ cd unity_3d_model_improver
 
 **After editing textures:** Must trigger Unity refresh so it reimports them:
 ```bash
-../../.venv/Scripts/python.exe -c "
+../../python -c "
 import sys; sys.path.insert(0, 'unity_3d_model_improver')
 import unity_bridge; unity_bridge.refresh()
 "
@@ -84,7 +84,7 @@ import unity_bridge; unity_bridge.refresh()
 ```bash
 cd unity_3d_model_improver
 export PATH="$PATH:/c/Users/$USERNAME/AppData/Local/Programs/Ollama"
-../../.venv/Scripts/python.exe audit.py --mode upgraded
+../../python audit.py --mode upgraded
 ```
 
 **Key difference from old approach:**
@@ -96,7 +96,7 @@ export PATH="$PATH:/c/Users/$USERNAME/AppData/Local/Programs/Ollama"
 **Applying fixes from upgraded audit:**
 The upgraded audit outputs JSON change instructions. Apply them:
 ```bash
-../../.venv/Scripts/python.exe -c "
+../../python -c "
 import sys, json; sys.path.insert(0, 'unity_3d_model_improver')
 import mat_editor
 changes = [...]  # paste the JSON changes from audit output
@@ -123,9 +123,9 @@ Then refresh Unity and re-audit.
 
 ```bash
 cd unity_3d_model_improver
-../../.venv/Scripts/python.exe approach_tracker.py status     # Show current state
-../../.venv/Scripts/python.exe approach_tracker.py reset      # Start fresh from approach 1
-../../.venv/Scripts/python.exe approach_tracker.py next       # Switch to next approach
+../../python approach_tracker.py status     # Show current state
+../../python approach_tracker.py reset      # Start fresh from approach 1
+../../python approach_tracker.py next       # Switch to next approach
 ```
 
 Programmatic usage (from Python):
@@ -141,7 +141,7 @@ if state.should_switch:
 
 ```bash
 cd unity_3d_model_improver
-../../.venv/Scripts/python.exe audit.py --compare /path/to/first.png /path/to/last.png --iterations 10
+../../python audit.py --compare /path/to/first.png /path/to/last.png --iterations 10
 ```
 
 This outputs `PROGRESS: YES` or `PROGRESS: NO` to decide whether to continue or switch.
@@ -175,7 +175,7 @@ mat_editor.apply_changes([
 ### Unity refresh after edits
 
 ```bash
-../../.venv/Scripts/python.exe -c "
+../../python -c "
 import sys; sys.path.insert(0, 'unity_3d_model_improver')
 import unity_bridge; unity_bridge.refresh()
 "
@@ -184,7 +184,7 @@ import unity_bridge; unity_bridge.refresh()
 ### Executing C# Editor scripts
 
 ```bash
-../../.venv/Scripts/python.exe -c "
+../../python -c "
 import sys; sys.path.insert(0, 'unity_3d_model_improver')
 import unity_bridge
 unity_bridge.refresh()
@@ -223,4 +223,4 @@ All in `unity_3d_model_improver/`:
 | `unity_bridge.py` | Unity agent bridge (screenshot, refresh, execute) |
 | `vram_manager.py` | GPU model selection |
 
-Run with: `../../.venv/Scripts/python.exe`
+Run with: `../../python`

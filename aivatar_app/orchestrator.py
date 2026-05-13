@@ -5,7 +5,7 @@ Drives the loop: greet → listen (STT) → think+speak (Claude streaming + TTS 
 Unity connects as a WebSocket client; this process is the server.
 
 Run:
-    .venv/Scripts/python -m aivatar_app
+    python -m aivatar_app
 
 Requires TTS server (port 5123) and STT server (port 8765) to be running first.
 

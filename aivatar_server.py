@@ -6,8 +6,9 @@ Runs TTS (5123), STT (8765), and the orchestrator (5124) in one process.
 A management HTTP endpoint is available on port 5125 (/status, /health).
 
 Usage:
-    .venv/Scripts/python aivatar_server.py
-    .venv/Scripts/python aivatar_server.py --no-stt   # skip STT (no GPU required)
+    python aivatar_server.py
+    python aivatar_server.py --no-stt   # skip STT (no GPU required)
+    # Windows: replace .venv/bin/ with .venv/Scripts/
 
 Environment overrides (same as individual servers):
     SOUND_ENGINE_PORT   TTS port   (default 5123)

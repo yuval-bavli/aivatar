@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 /// <summary>
 /// Replaces the Azure TTS backend with the local sound_engine Python server.
 /// Start the server before playing in Unity:
-///   .venv/Scripts/python sound_engine/server.py
+///   python sound_engine/server.py  (activate venv first)
 /// </summary>
 public class AzureSpeechManager : MonoBehaviour
 {
@@ -68,7 +68,7 @@ public class AzureSpeechManager : MonoBehaviour
         if (req.result != UnityWebRequest.Result.Success)
         {
             Debug.LogError($"[SoundEngine] Request failed: {req.error}\n" +
-                           "Make sure the server is running: .venv/Scripts/python sound_engine/server.py");
+                           "Make sure the server is running: python sound_engine/server.py (activate venv first)");
             yield break;
         }
 

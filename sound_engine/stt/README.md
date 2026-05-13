@@ -18,9 +18,9 @@ This is a **complete-utterance** system — no streaming/partial transcription. 
 ## Installation
 
 ```bash
-# From the repo root, activate your venv
-.venv/Scripts/activate   # Windows
-# source .venv/bin/activate  # Linux/macOS
+# From the repo root, activate the venv once per session:
+source .venv/bin/activate   # macOS/Linux
+.venv\Scripts\activate      # Windows
 
 # Install PyTorch with CUDA support FIRST (adjust cu121 to your CUDA version)
 pip install torch --index-url https://download.pytorch.org/whl/cu121
@@ -39,10 +39,10 @@ The Silero VAD model (~10MB) downloads automatically via `torch.hub` on first st
 
 ```bash
 # From the repo root:
-.venv/Scripts/python -m sound_engine.stt.server
+python -m sound_engine.stt.server
 
 # Or directly:
-.venv/Scripts/python sound_engine/stt/server.py
+python sound_engine/stt/server.py
 ```
 
 The server starts on `ws://0.0.0.0:8765`. Check it's alive:
@@ -66,9 +66,9 @@ Environment variables:
 Provide a WAV file at 16kHz mono 16-bit signed PCM:
 
 ```bash
-.venv/Scripts/python -m sound_engine.stt.test_client path/to/audio.wav
-.venv/Scripts/python -m sound_engine.stt.test_client path/to/audio.wav --language he
-.venv/Scripts/python -m sound_engine.stt.test_client path/to/audio.wav --language mixed
+python -m sound_engine.stt.test_client path/to/audio.wav
+python -m sound_engine.stt.test_client path/to/audio.wav --language he
+python -m sound_engine.stt.test_client path/to/audio.wav --language mixed
 ```
 
 The client streams the file in 100ms chunks (simulating real-time mic input) and prints every VAD event and transcript as it arrives.

@@ -1,7 +1,7 @@
 """HTTP server that wraps sound_engine/tts for Unity integration.
 
 Start before playing in Unity:
-    .venv/Scripts/python -m sound_engine.tts.server
+    python -m sound_engine.tts.server
 
 Default port: 5123 (override with SOUND_ENGINE_PORT env var).
 
