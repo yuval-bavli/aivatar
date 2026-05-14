@@ -21,15 +21,18 @@ services:
       - "8765:8765"
     environment:
       STT_HOST: "0.0.0.0"
+      WHISPER_MODEL: "${WHISPER_MODEL:-}"   # empty = auto (large-v3-turbo on GPU, tiny on CPU)
     volumes:
       - ./debug/logs:/app/debug/logs
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # GPU reservation is optional — omit on machines without NVIDIA (e.g. Mac); STT falls back to CPU
+    # Uncomment to enable GPU on Linux+NVIDIA:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
   aivatar_app:
     build:

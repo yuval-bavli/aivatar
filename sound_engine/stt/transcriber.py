@@ -1,14 +1,17 @@
 """faster-whisper transcription wrapper.
 
-Loads the large-v3-turbo model once on startup, keeps it in VRAM, and
-exposes a single synchronous transcribe() call. The caller is responsible
-for serializing GPU access via an asyncio.Lock when running in async context.
+Loads the whisper model once on startup and exposes a single
+synchronous transcribe() call. Device is auto-detected: CUDA if available,
+otherwise CPU (with int8 compute for efficiency).
 
-Model: large-v3-turbo (~3GB VRAM in float16)
-Device: CUDA GPU
+Model selection:
+  - Set WHISPER_MODEL env var to override (e.g. "tiny", "base", "large-v3-turbo").
+  - Default: "large-v3-turbo" on GPU, "tiny" on CPU (CPU inference is ~10x slower;
+    large-v3-turbo takes 10-12s per utterance on CPU which causes client timeouts).
 """
 
 import logging
+import os
 import time
 from dataclasses import dataclass
 
@@ -17,9 +20,25 @@ from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
 
-MODEL_SIZE = "large-v3-turbo"
-DEVICE = "cuda"
-COMPUTE_TYPE = "float16"
+_DEFAULT_GPU_MODEL = "large-v3-turbo"
+_DEFAULT_CPU_MODEL = "tiny"
+
+
+def _detect_device() -> tuple[str, str]:
+    """Return (device, compute_type) based on hardware availability."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda", "float16"
+    except ImportError:
+        pass
+    return "cpu", "int8"
+
+
+DEVICE, COMPUTE_TYPE = _detect_device()
+MODEL_SIZE = os.environ.get("WHISPER_MODEL") or (
+    _DEFAULT_GPU_MODEL if DEVICE == "cuda" else _DEFAULT_CPU_MODEL
+)
 
 
 @dataclass
