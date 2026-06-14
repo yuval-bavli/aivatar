@@ -35,6 +35,9 @@ public static class SetupAvatarScene
 
         var lipSync = avatarGO.AddComponent<AnimClipLipSync>();
 
+        var motion = avatarGO.AddComponent<NaturalMotion>();
+        motion.lipSync = lipSync;
+
         // Legacy direct-TTS path (still useful for quick smoke-tests)
         var speech = avatarGO.AddComponent<AzureSpeechManager>();
         speech.lipSyncController = lipSync;
