@@ -12,10 +12,18 @@ If the Unity MCP server is not responding or tools fail, prompt the user to ensu
 
 ## Python environment
 
-Always use `.venv` at the repo root — never system Python or bare `pip`:
+Always use `.venv` at the repo root — never system Python or bare `pip`. Activate once per terminal session, then use `python`/`pip` directly:
 ```bash
-.venv/Scripts/python
-.venv/Scripts/pip install -r sound_engine/requirements.txt
+# macOS/Linux
+source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
+```
+
+Install deps (after activation):
+```bash
+pip install -r sound_engine/requirements.txt
 ```
 
 STT has a separate install step (needs CUDA torch):
@@ -78,7 +86,7 @@ To change profile, set `AVATAR_PROFILE=<folder_name>` before launching the orche
 
 Quick offline smoke test (no network, no ffmpeg):
 ```bash
-.venv/Scripts/python -c "
+python -c "
 import sys; sys.path.insert(0,'.')
 from sound_engine.tts.providers.mock_tts import MockTTS
 from sound_engine.tts.phonemizer.phonemizer import Phonemizer
@@ -93,13 +101,13 @@ print([(e.viseme_id, e.audio_offset//10000) for e in events])
 
 Full TTS test (needs internet + ffmpeg):
 ```bash
-.venv/Scripts/python sound_engine/tts/examples/usage.py approximate
-.venv/Scripts/python sound_engine/tts/examples/usage.py enhanced
+python sound_engine/tts/examples/usage.py approximate
+python sound_engine/tts/examples/usage.py enhanced
 ```
 
 STT test with a WAV file:
 ```bash
-.venv/Scripts/python -m sound_engine.stt.test_client path/to/audio.wav --language en
+python -m sound_engine.stt.test_client path/to/audio.wav --language en
 ```
 
 ## Project architecture

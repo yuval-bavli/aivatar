@@ -30,7 +30,7 @@ Unity WebSocket client (ConversationClient.cs)
 
 **First time — install deps:**
 ```bash
-.venv/Scripts/pip install -r aivatar_app/requirements.txt
+pip install -r aivatar_app/requirements.txt  # Windows: .venv\Scripts\pip
 ```
 
 **Env vars required (in `.env` at repo root):**
@@ -41,13 +41,14 @@ CLAUDE_KEY=sk-ant-...        # or ANTHROPIC_API_KEY
 **Start in order (three terminals):**
 ```bash
 # 1. TTS
-.venv/Scripts/python -m sound_engine.tts.server
+python -m sound_engine.tts.server
 
 # 2. STT  (needs CUDA GPU)
-.venv/Scripts/python -m sound_engine.stt.server
+python -m sound_engine.stt.server
 
 # 3. Orchestrator
-.venv/Scripts/python -m aivatar_app
+python -m aivatar_app
+# Windows: replace .venv/bin/ with .venv/Scripts/
 ```
 
 Then press **Play** in the Unity editor. The avatar delivers the greeting and the conversation loop begins.

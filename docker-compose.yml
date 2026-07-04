@@ -28,6 +28,7 @@ services:
       - "8765:8765"
     environment:
       STT_HOST: "0.0.0.0"
+      WHISPER_MODEL: "${WHISPER_MODEL:-}"   # empty = auto (large-v3-turbo on GPU, tiny on CPU)
     volumes:
       - ./debug/logs:/app/debug/logs
     deploy:

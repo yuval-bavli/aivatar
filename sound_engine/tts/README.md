@@ -20,9 +20,9 @@ A text-to-speech server that synthesizes speech, schedules viseme (mouth-shape) 
 ## Installation
 
 ```bash
-# From repo root, activate your venv
-.venv/Scripts/activate   # Windows
-# source .venv/bin/activate  # Linux/macOS
+# From repo root, activate the venv once per session:
+source .venv/bin/activate   # macOS/Linux
+.venv\Scripts\activate      # Windows
 
 pip install -r sound_engine/requirements.txt
 ```
@@ -32,8 +32,8 @@ pip install -r sound_engine/requirements.txt
 ## Starting the Server
 
 ```bash
-# From repo root:
-.venv/Scripts/python -m sound_engine.tts.server
+# From repo root (venv must be active):
+python -m sound_engine.tts.server
 ```
 
 The server starts on `http://127.0.0.1:5123`. Check it's alive:
@@ -263,7 +263,7 @@ This matches Azure Cognitive Services SDK conventions and `AzureSpeechManager.cs
 ## Quick Smoke Test (offline, no ffmpeg)
 
 ```bash
-.venv/Scripts/python -c "
+python -c "
 import sys; sys.path.insert(0,'.')
 from sound_engine.tts.providers.mock_tts import MockTTS
 from sound_engine.tts.phonemizer.phonemizer import Phonemizer
@@ -279,8 +279,9 @@ print([(e.viseme_id, e.audio_offset//10000) for e in events])
 ## Full Test (needs internet + ffmpeg)
 
 ```bash
-.venv/Scripts/python sound_engine/tts/examples/usage.py approximate
-.venv/Scripts/python sound_engine/tts/examples/usage.py enhanced
+python sound_engine/tts/examples/usage.py approximate
+python sound_engine/tts/examples/usage.py enhanced
+# Windows: replace .venv/bin/ with .venv/Scripts/
 ```
 
 ## Unity Integration

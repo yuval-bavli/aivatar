@@ -1,9 +1,9 @@
 """Real-time Speech-to-Text WebSocket server.
 
 Start with:
-    .venv/Scripts/python -m sound_engine.stt.server
+    python -m sound_engine.stt.server
   or:
-    .venv/Scripts/python sound_engine/stt/server.py
+    python sound_engine/stt/server.py
 
 Endpoints:
     GET  /health              - liveness check

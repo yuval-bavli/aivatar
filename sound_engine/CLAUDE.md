@@ -1,9 +1,13 @@
 # sound_engine — Claude Notes
 
 ## Python environment
-Always use `.venv` at the repo root:
-- Install: `.venv/Scripts/pip install -r sound_engine/requirements.txt`
-- Run: `.venv/Scripts/python sound_engine/tts/examples/usage.py`
+Always use `.venv` at the repo root. Activate once per session, then use `python`/`pip` directly:
+```bash
+source .venv/bin/activate   # macOS/Linux
+.venv\Scripts\activate      # Windows
+```
+- Install: `pip install -r sound_engine/requirements.txt`
+- Run: `python sound_engine/tts/examples/usage.py`
 
 ## Key implementation facts
 
@@ -41,7 +45,7 @@ Consecutive identical viseme IDs are collapsed into one event. This intentionall
 ## Testing
 Quick smoke test (no network, no ffmpeg needed):
 ```bash
-.venv/Scripts/python -c "
+python -c "
 import sys; sys.path.insert(0,'.')
 from sound_engine.tts.providers.mock_tts import MockTTS
 from sound_engine.tts.phonemizer.phonemizer import Phonemizer
@@ -56,8 +60,8 @@ print([(e.viseme_id, e.audio_offset//10000) for e in events])
 
 Full test with real TTS (needs internet + ffmpeg):
 ```bash
-.venv/Scripts/python sound_engine/tts/examples/usage.py approximate
-.venv/Scripts/python sound_engine/tts/examples/usage.py enhanced
+python sound_engine/tts/examples/usage.py approximate
+python sound_engine/tts/examples/usage.py enhanced
 ```
 
 ## TTS Server (`sound_engine/tts/`)
@@ -66,7 +70,7 @@ HTTP server on port 5123. See `tts/README.md` for full docs.
 
 ### Run
 ```bash
-.venv/Scripts/python -m sound_engine.tts.server
+python -m sound_engine.tts.server
 ```
 
 ### Key files
@@ -95,13 +99,13 @@ pip install -r sound_engine/stt/requirements.txt
 
 ### Run
 ```bash
-.venv/Scripts/python -m sound_engine.stt.server
+python -m sound_engine.stt.server
 # Health check: curl http://localhost:8765/health
 ```
 
 ### Test with a WAV file
 ```bash
-.venv/Scripts/python -m sound_engine.stt.test_client path/to/audio.wav --language en
+python -m sound_engine.stt.test_client path/to/audio.wav --language en
 ```
 
 ### Key files

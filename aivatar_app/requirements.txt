@@ -1,6 +1,6 @@
 # aivatar_app orchestrator dependencies
 # Install into the repo venv:
-#   .venv/Scripts/pip install -r aivatar_app/requirements.txt
+#   pip install -r aivatar_app/requirements.txt  (Windows: .venv\Scripts\pip)
 
 httpx>=0.27
 websockets>=12.0

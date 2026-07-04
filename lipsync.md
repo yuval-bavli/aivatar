@@ -306,7 +306,7 @@ Thresholds:
 - Median out-of-window error ≤ 50ms
 - Silence-in-silence ≥ 95% (v=0 events fire during audio silence)
 
-Run: `.venv/Scripts/python -m sound_engine.tts.align_verify`
+Run: `python -m sound_engine.tts.align_verify`
 
 ### Results
 
@@ -406,16 +406,16 @@ Modified: `viseme_scheduler.py` (accepts `global_offset_ms`, `time_scale`),
 ```bash
 # Restart server first (required when server.py was changed)
 # Kill old server, then:
-.venv/Scripts/python sound_engine/server.py &
+python sound_engine/server.py &
 
 # Run optimizer (audio analysis only, no Unity needed for scheduler tuning)
-.venv/Scripts/python -m sound_engine.lipsync_iterator --no-unity --iterations 6
+python -m sound_engine.lipsync_iterator --no-unity --iterations 6
 
 # Reset params and start over
-.venv/Scripts/python -m sound_engine.lipsync_iterator --no-unity --reset-params
+python -m sound_engine.lipsync_iterator --no-unity --reset-params
 
 # Full loop including Unity animation measurement (Unity Editor must be open)
-.venv/Scripts/python -m sound_engine.lipsync_iterator --iterations 5
+python -m sound_engine.lipsync_iterator --iterations 5
 ```
 
 ### Key lessons
@@ -552,7 +552,7 @@ Verified by comparing:
 ```
 
 Fix: `taskkill /F` on all three PIDs (74392, 84856, 49272), then
-`.venv/Scripts/python sound_engine/server.py`. After restart, server
+`python sound_engine/server.py`. After restart, server
 returns 3 events as expected.
 
 **Root cause 2 — stale scene-serialized AnimClipLipSync values**:
@@ -795,7 +795,7 @@ key required, using edge-tts (free) or ElevenLabs optionally.
 
 **Before starting play mode**, the server must be running:
 ```bash
-.venv/Scripts/python sound_engine/server.py
+python sound_engine/server.py
 ```
 
 ### [AnimClipLipSync.cs](unity/aivatar/Assets/Scripts/AnimClipLipSync.cs) — tuning defaults (now matching scene)
@@ -992,7 +992,7 @@ wall-clock elapsed from audio-start.
 
 ### Dump viseme timeline for any phrase
 ```bash
-.venv/Scripts/python -c "
+python -c "
 from sound_engine.speech_synthesizer import SpeechSynthesizer
 r = SpeechSynthesizer(timing_mode='enhanced').speak_text('Hello')
 print(f'duration: {r.duration_ms:.1f} ms')
@@ -1003,7 +1003,7 @@ for e in r.viseme_events:
 
 ### Phonemize a word
 ```bash
-.venv/Scripts/python -c "
+python -c "
 from sound_engine.phonemizer.phonemizer import Phonemizer
 from sound_engine.viseme.arpabet_to_viseme import phoneme_to_viseme
 for w in ['Hello', 'avatar', 'today']:
