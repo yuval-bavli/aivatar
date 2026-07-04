@@ -10,6 +10,11 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+try:
+    import numpy as _np
+except ImportError:  # numpy is available via the aligners, but keep a fallback
+    _np = None
+
 
 # ──────────────────────────────────────────────
 # Data types
@@ -131,6 +136,40 @@ def _compute_rms_windows(
             break
         rms = math.sqrt(sum(s * s for s in chunk) / len(chunk))
         time_ms = (i / sample_rate) * 1000.0
+        windows.append(EnergyWindow(time_ms=time_ms, rms=rms))
+
+    return windows
+
+
+def _compute_rms_windows_np(
+    pcm_bytes: bytes,
+    num_channels: int,
+    sample_rate: int,
+    window_ms: float = 10.0,
+) -> List[EnergyWindow]:
+    """Vectorized RMS-per-window using numpy (16-bit PCM only)."""
+    samples = _np.frombuffer(pcm_bytes, dtype='<i2')
+    if num_channels > 1:
+        samples = samples[: len(samples) - (len(samples) % num_channels)]
+        samples = samples.reshape(-1, num_channels).mean(axis=1)
+    audio = samples.astype(_np.float32) / 32768.0
+
+    window_size = max(1, int(sample_rate * window_ms / 1000.0))
+    n_full = len(audio) // window_size
+    windows: List[EnergyWindow] = []
+
+    if n_full:
+        block = audio[: n_full * window_size].reshape(n_full, window_size)
+        rms = _np.sqrt((block * block).mean(axis=1))
+        times = (_np.arange(n_full) * window_size / sample_rate) * 1000.0
+        windows.extend(EnergyWindow(time_ms=float(t), rms=float(r))
+                       for t, r in zip(times, rms))
+
+    # Trailing partial window (matches the stdlib version's behaviour)
+    rem = audio[n_full * window_size:]
+    if len(rem):
+        rms = float(_np.sqrt((rem * rem).mean()))
+        time_ms = (n_full * window_size / sample_rate) * 1000.0
         windows.append(EnergyWindow(time_ms=time_ms, rms=rms))
 
     return windows
@@ -264,11 +303,17 @@ def analyze_wav(wav_bytes: bytes, window_ms: float = 10.0) -> AudioProfile:
         AudioProfile
     """
     sample_rate, num_channels, pcm_bytes = _parse_wav(wav_bytes)
-    samples = _pcm_to_mono_float(pcm_bytes, num_channels)
 
-    duration_ms = (len(samples) / sample_rate) * 1000.0
+    if _np is not None:
+        # Vectorized path — no per-sample Python list, no math.sqrt loop.
+        rms_windows = _compute_rms_windows_np(pcm_bytes, num_channels, sample_rate, window_ms)
+        n_samples = (len(pcm_bytes) // 2) // max(1, num_channels)
+        duration_ms = (n_samples / sample_rate) * 1000.0
+    else:
+        samples = _pcm_to_mono_float(pcm_bytes, num_channels)
+        duration_ms = (len(samples) / sample_rate) * 1000.0
+        rms_windows = _compute_rms_windows(samples, sample_rate, window_ms)
 
-    rms_windows = _compute_rms_windows(samples, sample_rate, window_ms)
     speech_regions, silence_regions = _detect_regions(rms_windows)
     peaks = _find_peaks(rms_windows)
 

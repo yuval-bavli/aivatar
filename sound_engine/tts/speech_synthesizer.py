@@ -124,7 +124,14 @@ class SpeechSynthesizer:
             try:
                 from .providers.elevenlabs_provider import ElevenLabsProvider
                 provider = ElevenLabsProvider(api_key=api_key)
-                wav_bytes, duration_ms, _ = provider.synthesize(text)
+                # provider.synthesize is blocking (requests) — keep it off the loop
+                wav_bytes, duration_ms, _ = await asyncio.to_thread(provider.synthesize, text)
+                # ElevenLabs emits no timing events; align against the audio so the
+                # premium voice gets the same forced-alignment lip-sync as edge-tts
+                # instead of falling back to equal-split.
+                aligned = await self._try_align(wav_bytes, duration_ms, plain_text, "elevenlabs")
+                if aligned is not None:
+                    return aligned
                 return "elevenlabs", wav_bytes, duration_ms, None, None, None, None, None
             except Exception as e:
                 print(f"[sound_engine] ElevenLabs failed ({e}), falling back to edge-tts")
@@ -143,32 +150,9 @@ class SpeechSynthesizer:
             # sentence_boundaries: [(sent_text, start_ms, dur_ms), ...]
 
             # ── Alignment: phoneme-level (MMS_FA) → word-level (whisper) → sentence ──
-            word_list = [w for w in plain_text.split() if w]
-            word_phonemes = self._phonemizer.phonemize_word_list(word_list)
-
-            # 1. Phoneme-level forced alignment (GPU, ~100ms, best quality)
-            if self.phoneme_aligner is not None and self.phoneme_aligner.available:
-                try:
-                    phoneme_timings = await asyncio.to_thread(
-                        self.phoneme_aligner.align, wav_bytes, word_phonemes
-                    )
-                    if phoneme_timings is not None:
-                        return ("edge-tts+phoneme", wav_bytes, duration_ms,
-                                None, None, word_list, phoneme_timings, word_phonemes)
-                except Exception as ae:
-                    print(f"[sound_engine] phoneme alignment failed ({ae}), trying word aligner")
-
-            # 2. Word-level alignment fallback (CPU whisper, ~400ms)
-            if self.word_aligner is not None and self.word_aligner.available:
-                try:
-                    word_timings = await asyncio.to_thread(
-                        self.word_aligner.align, wav_bytes, text
-                    )
-                    if word_timings is not None:
-                        return ("edge-tts+align", wav_bytes, duration_ms,
-                                None, word_timings, word_list, None, None)
-                except Exception as ae:
-                    print(f"[sound_engine] word alignment failed ({ae}), using sentence timing")
+            aligned = await self._try_align(wav_bytes, duration_ms, plain_text, "edge-tts")
+            if aligned is not None:
+                return aligned
 
             return ("edge-tts", wav_bytes, duration_ms,
                     sentence_boundaries, None, None, None, None)
@@ -182,6 +166,42 @@ class SpeechSynthesizer:
         word_list = [w for w in plain_text.split() if w]
         return "mock", wav_bytes, duration_ms, None, word_timings, word_list, None, None
 
+    async def _try_align(self, wav_bytes, duration_ms, plain_text, provider_label):
+        """Run forced alignment against the audio for any plain-WAV provider.
+
+        Tries phoneme-level (MMS_FA, GPU, ~100ms) then word-level (whisper, CPU).
+        Returns a fully-formed _synthesize_async result tuple, or None if no
+        aligner is available/succeeds (caller uses its own fallback).
+        """
+        word_list = [w for w in plain_text.split() if w]
+        word_phonemes = self._phonemizer.phonemize_word_list(word_list)
+
+        # 1. Phoneme-level forced alignment (GPU, ~100ms, best quality)
+        if self.phoneme_aligner is not None and self.phoneme_aligner.available:
+            try:
+                phoneme_timings = await asyncio.to_thread(
+                    self.phoneme_aligner.align, wav_bytes, word_phonemes
+                )
+                if phoneme_timings is not None:
+                    return (f"{provider_label}+phoneme", wav_bytes, duration_ms,
+                            None, None, word_list, phoneme_timings, word_phonemes)
+            except Exception as ae:
+                print(f"[sound_engine] phoneme alignment failed ({ae}), trying word aligner")
+
+        # 2. Word-level alignment fallback (CPU whisper, ~400ms)
+        if self.word_aligner is not None and self.word_aligner.available:
+            try:
+                word_timings = await asyncio.to_thread(
+                    self.word_aligner.align, wav_bytes, plain_text
+                )
+                if word_timings is not None:
+                    return (f"{provider_label}+align", wav_bytes, duration_ms,
+                            None, word_timings, word_list, None, None)
+            except Exception as ae:
+                print(f"[sound_engine] word alignment failed ({ae}), using fallback timing")
+
+        return None
+
     def _build_visemes(
         self,
         text: str,
@@ -194,6 +214,16 @@ class SpeechSynthesizer:
         wav_bytes: Optional[bytes] = None,
     ) -> List[VisemeEvent]:
         """Phonemize per sentence/word and schedule viseme events."""
+        # Analyze the WAV once and reuse the profile across both the boundary
+        # clipping and pause-injection passes (avoids a second full RMS scan).
+        profile = None
+        if wav_bytes:
+            try:
+                from ..audio_analyzer import analyze_wav
+                profile = analyze_wav(wav_bytes)
+            except Exception:
+                profile = None
+
         # Best path: phoneme-level MMS_FA timings — exact per-phoneme placement
         if phoneme_timings is not None and word_phonemes is not None:
             events = self._scheduler.schedule_phoneme_timings(
@@ -203,7 +233,7 @@ class SpeechSynthesizer:
                 global_offset_ms=self.global_offset_ms,
                 time_scale=self.time_scale,
             )
-            return self._inject_pause_silences(events, wav_bytes, duration_ms)
+            return self._inject_pause_silences(events, wav_bytes, duration_ms, profile=profile)
 
         if sentence_boundaries:
             # edge-tts SentenceBoundary durations include trailing silence
@@ -211,7 +241,7 @@ class SpeechSynthesizer:
             # pauses. Tighten each window to the actual audio speech region(s)
             # so phonemes don't get distributed across silence.
             adjusted_boundaries = self._clip_boundaries_to_audio(
-                sentence_boundaries, wav_bytes, duration_ms
+                sentence_boundaries, wav_bytes, duration_ms, profile=profile
             )
             sentence_data = []
             for sent_text, start_ms, dur_ms in adjusted_boundaries:
@@ -227,7 +257,7 @@ class SpeechSynthesizer:
                 global_offset_ms=self.global_offset_ms,
                 time_scale=self.time_scale,
             )
-            return self._inject_pause_silences(events, wav_bytes, duration_ms)
+            return self._inject_pause_silences(events, wav_bytes, duration_ms, profile=profile)
 
         # MockTTS / ElevenLabs path: word_timings or equal-split fallback
         if word_list and word_timings:
@@ -243,7 +273,7 @@ class SpeechSynthesizer:
             global_offset_ms=self.global_offset_ms,
             time_scale=self.time_scale,
         )
-        return self._inject_pause_silences(events, wav_bytes, duration_ms)
+        return self._inject_pause_silences(events, wav_bytes, duration_ms, profile=profile)
 
     # ── audio-aware silence handling ──────────────────────────────────────
 
@@ -252,6 +282,7 @@ class SpeechSynthesizer:
         sentence_boundaries: List[Tuple[str, float, float]],
         wav_bytes: Optional[bytes],
         duration_ms: float,
+        profile=None,
     ) -> List[Tuple[str, float, float]]:
         """Tighten each edge-tts sentence boundary to the audio's speech regions.
 
@@ -264,11 +295,12 @@ class SpeechSynthesizer:
         """
         if not wav_bytes or not sentence_boundaries:
             return sentence_boundaries
-        try:
-            from ..audio_analyzer import analyze_wav
-            profile = analyze_wav(wav_bytes)
-        except Exception:
-            return sentence_boundaries
+        if profile is None:
+            try:
+                from ..audio_analyzer import analyze_wav
+                profile = analyze_wav(wav_bytes)
+            except Exception:
+                return sentence_boundaries
         if not profile.speech_regions:
             return sentence_boundaries
 
@@ -300,6 +332,7 @@ class SpeechSynthesizer:
         duration_ms: float,
         min_pause_ms: float = 200.0,
         edge_guard_ms: float = 100.0,
+        profile=None,
     ) -> List[VisemeEvent]:
         """Insert v=0 events at the start of long audio silence regions.
 
@@ -311,11 +344,12 @@ class SpeechSynthesizer:
         """
         if not wav_bytes:
             return events
-        try:
-            from ..audio_analyzer import analyze_wav
-            profile = analyze_wav(wav_bytes)
-        except Exception:
-            return events
+        if profile is None:
+            try:
+                from ..audio_analyzer import analyze_wav
+                profile = analyze_wav(wav_bytes)
+            except Exception:
+                return events
 
         TICKS = 10_000
         new_events = list(events)

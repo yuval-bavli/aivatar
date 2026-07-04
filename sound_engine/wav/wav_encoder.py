@@ -37,8 +37,40 @@ def get_duration_ms(wav_bytes: bytes) -> float:
         return (frames / rate) * 1000.0
 
 
+def _mp3_to_wav_miniaudio(mp3_bytes: bytes, sample_rate: int) -> bytes:
+    """Decode MP3 → 16-bit mono WAV fully in-process (no ffmpeg subprocess).
+
+    Uses miniaudio (a small self-contained C extension). Raises if miniaudio
+    is missing or decoding fails so the caller can fall back to pydub.
+    """
+    import miniaudio  # raises ImportError if not installed → caller falls back
+
+    decoded = miniaudio.decode(
+        mp3_bytes,
+        output_format=miniaudio.SampleFormat.SIGNED16,
+        nchannels=1,
+        sample_rate=sample_rate,
+    )
+    return encode_raw_pcm_to_wav(
+        decoded.samples.tobytes(),
+        sample_rate=sample_rate,
+        num_channels=1,
+        sampwidth=2,
+    )
+
+
 def mp3_to_wav(mp3_bytes: bytes, sample_rate: int = 16000) -> bytes:
-    """Convert MP3 bytes to WAV bytes using pydub (requires ffmpeg on PATH)."""
+    """Convert MP3 bytes to WAV bytes.
+
+    Fast path: decode in-process via miniaudio (no per-call ffmpeg subprocess).
+    Falls back to pydub/ffmpeg if miniaudio is unavailable or fails, so behaviour
+    is never worse than before.
+    """
+    try:
+        return _mp3_to_wav_miniaudio(mp3_bytes, sample_rate)
+    except Exception:
+        pass  # fall through to pydub/ffmpeg
+
     try:
         from pydub import AudioSegment
     except ImportError:

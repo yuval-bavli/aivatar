@@ -21,6 +21,19 @@ MODEL_SIZE = "large-v3-turbo"
 DEVICE = "cuda"
 COMPUTE_TYPE = "float16"
 
+# Language ID needs far less audio than transcription. Detecting on a short
+# prefix avoids a second full-clip encoder pass while still re-detecting every
+# utterance (so Hebrew/English code-switching keeps working).
+_LANG_DETECT_SECONDS = 4.0
+_LANG_DETECT_SAMPLES = int(16000 * _LANG_DETECT_SECONDS)
+
+# Hallucination guard: Whisper invents stock phrases ("Thank you.", "Bye!") on
+# near-silence or echo. Drop a segment only when BOTH signals agree it's
+# non-speech, mirroring OpenAI's own no_speech/logprob thresholds — conservative
+# so genuine quiet speech is kept.
+_NO_SPEECH_MAX = 0.6
+_MIN_AVG_LOGPROB = -1.0
+
 
 @dataclass
 class TranscriptResult:
@@ -73,7 +86,8 @@ class WhisperTranscriber:
 
         # "mixed": detect language restricted to en/he, then transcribe with winner
         if language == "mixed":
-            _, _top_prob, all_probs = self._model.detect_language(audio)
+            probe = audio[:_LANG_DETECT_SAMPLES] if len(audio) > _LANG_DETECT_SAMPLES else audio
+            _, _top_prob, all_probs = self._model.detect_language(probe)
             probs = dict(all_probs)
             whisper_language = "he" if probs.get("he", 0) > probs.get("en", 0) else "en"
             logger.debug("Mixed mode detected language: %s (en=%.2f, he=%.2f)",
@@ -87,10 +101,19 @@ class WhisperTranscriber:
             language=whisper_language,
             beam_size=1,        # greedy — fastest, fine for conversational speech
             vad_filter=False,   # we already ran our own VAD
+            condition_on_previous_text=False,  # utterances are independent — avoids repetition loops
         )
 
-        # Consume the generator and join all segment texts
-        parts = [seg.text for seg in segments]
+        # Consume the generator, dropping hallucinated (non-speech) segments.
+        parts = []
+        for seg in segments:
+            no_speech = getattr(seg, "no_speech_prob", 0.0)
+            avg_logprob = getattr(seg, "avg_logprob", 0.0)
+            if no_speech > _NO_SPEECH_MAX and avg_logprob < _MIN_AVG_LOGPROB:
+                logger.debug("Dropping non-speech segment (no_speech=%.2f logprob=%.2f): %r",
+                             no_speech, avg_logprob, seg.text)
+                continue
+            parts.append(seg.text)
         text = " ".join(parts).strip()
 
         inference_ms = (time.perf_counter() - t0) * 1000
@@ -99,7 +122,7 @@ class WhisperTranscriber:
 
         return TranscriptResult(
             text=text,
-            language=language,
+            language=whisper_language,
             duration_ms=duration_ms,
             inference_ms=inference_ms,
         )

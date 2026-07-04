@@ -14,6 +14,8 @@ class ElevenLabsProvider:
     API_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # Rachel
     SAMPLE_RATE = 16000
+    # Model is env-overridable (e.g. eleven_flash_v2_5 for lowest latency).
+    DEFAULT_MODEL = os.environ.get("ELEVENLABS_MODEL", "eleven_v3")
 
     def __init__(self, api_key: Optional[str] = None, voice_id: str = DEFAULT_VOICE_ID):
         self.api_key = api_key or os.environ.get("ELEVENLABS_API_KEY", "")
@@ -40,11 +42,11 @@ class ElevenLabsProvider:
         headers = {
             "xi-api-key": self.api_key,
             "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
+            "Accept": "audio/pcm",
         }
         payload = {
             "text": styled_text,
-            "model_id": "eleven_v3",
+            "model_id": self.DEFAULT_MODEL,
             "voice_settings": {
                 "stability": 0.5,
                 "similarity_boost": 0.75,
@@ -52,17 +54,17 @@ class ElevenLabsProvider:
                 "use_speaker_boost": True,
             },
         }
+        # Request raw 16 kHz PCM so we can wrap it directly — no MP3 decode,
+        # no ffmpeg subprocess on the speech path.
+        params = {"output_format": f"pcm_{self.SAMPLE_RATE}"}
 
-        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp = requests.post(url, json=payload, headers=headers, params=params, timeout=30)
         if resp.status_code != 200:
             raise RuntimeError(
                 f"ElevenLabs API error {resp.status_code}: {resp.text[:200]}"
             )
 
-        # ElevenLabs returns MP3 by default
-        mp3_bytes = resp.content
-        from ...wav.wav_encoder import mp3_to_wav
-        wav_bytes = mp3_to_wav(mp3_bytes, sample_rate=self.SAMPLE_RATE)
+        wav_bytes = encode_raw_pcm_to_wav(resp.content, sample_rate=self.SAMPLE_RATE)
         duration_ms = get_duration_ms(wav_bytes)
 
         return wav_bytes, duration_ms, []
