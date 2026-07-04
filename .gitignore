@@ -16,6 +16,9 @@ unity/aivatar/*.csproj
 unity/aivatar/*.sln
 unity/aivatar/UpgradeLog.htm
 
+# Unity autosave recovery scenes (accidental commits)
+unity/aivatar/Assets/_Recovery/
+
 # OS
 .DS_Store
 Thumbs.db

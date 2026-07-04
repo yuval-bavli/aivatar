@@ -11,8 +11,13 @@ public class MicrophoneIndicatorUI : MonoBehaviour
     public float                 pulseSpeed  = 1.5f;
     [Range(0, 50)]  public int   cornerRadius = 15;
 
+    [Tooltip("Tint applied once speech_start is detected, so the child sees the mic actively 'hearing' them.")]
+    public Color hearingTint = new Color(0.4f, 1f, 0.5f, 1f);
+
     private CanvasGroup _group;
+    private RawImage    _icon;
     private bool        _listening;
+    private bool        _hearing;
 
     private void Awake()
     {
@@ -43,6 +48,7 @@ public class MicrophoneIndicatorUI : MonoBehaviour
         iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
         var raw      = iconGO.AddComponent<RawImage>();
         raw.texture  = micTexture;
+        _icon        = raw;
     }
 
     private static Sprite CreateRoundedRectSprite(int size, int radius)
@@ -72,25 +78,41 @@ public class MicrophoneIndicatorUI : MonoBehaviour
     private void OnEnable()
     {
         if (conversationClient != null)
+        {
             conversationClient.OnStateChanged += HandleState;
+            conversationClient.OnHearing += HandleHearing;
+        }
     }
 
     private void OnDisable()
     {
         if (conversationClient != null)
+        {
             conversationClient.OnStateChanged -= HandleState;
+            conversationClient.OnHearing -= HandleHearing;
+        }
     }
 
     private void HandleState(string state)
     {
         _listening = state == "listening";
+        _hearing = false;
+        if (_icon != null) _icon.color = Color.white;
         if (!_listening) _group.alpha = 0f;
+    }
+
+    private void HandleHearing()
+    {
+        if (!_listening) return; // stale event from a prior turn
+        _hearing = true;
+        if (_icon != null) _icon.color = hearingTint;
     }
 
     private void Update()
     {
         if (!_listening) return;
-        float t      = Mathf.PingPong(Time.time * pulseSpeed, 1f);
-        _group.alpha = Mathf.Lerp(minAlpha, 1f, t);
+        // Once speech has been detected, stay fully visible instead of pulsing —
+        // the tint alone communicates "I'm hearing you".
+        _group.alpha = _hearing ? 1f : Mathf.Lerp(minAlpha, 1f, Mathf.PingPong(Time.time * pulseSpeed, 1f));
     }
 }

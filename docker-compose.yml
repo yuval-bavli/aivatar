@@ -10,8 +10,15 @@ services:
     environment:
       TTS_HOST: "0.0.0.0"
       ELEVENLABS_API_KEY: "${ELEVENLABS_API_KEY:-}"
+      TTS_ALIGNER_DEVICE: "cpu"
     volumes:
       - ./debug/logs:/app/debug/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5123/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 10
 
   stt:
     build:
@@ -30,6 +37,12 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      start_period: 90s
+      retries: 30
 
   aivatar_app:
     build:
@@ -43,10 +56,13 @@ services:
       STT_URL: "ws://stt:8765/ws/transcribe"
       CLAUDE_KEY: "${CLAUDE_KEY}"
       AVATAR_PROFILE: "${AVATAR_PROFILE:-english_tutor_heb}"
+      STT_VAD_SILENCE_MS: "${STT_VAD_SILENCE_MS:-800}"
     volumes:
       - ./debug/logs:/app/debug/logs
       - ./sessions:/app/sessions
       - ./profiles:/app/profiles:ro
     depends_on:
-      - tts
-      - stt
+      tts:
+        condition: service_healthy
+      stt:
+        condition: service_healthy

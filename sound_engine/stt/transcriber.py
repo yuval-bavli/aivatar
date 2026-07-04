@@ -21,12 +21,6 @@ MODEL_SIZE = "large-v3-turbo"
 DEVICE = "cuda"
 COMPUTE_TYPE = "float16"
 
-# Language ID needs far less audio than transcription. Detecting on a short
-# prefix avoids a second full-clip encoder pass while still re-detecting every
-# utterance (so Hebrew/English code-switching keeps working).
-_LANG_DETECT_SECONDS = 4.0
-_LANG_DETECT_SAMPLES = int(16000 * _LANG_DETECT_SECONDS)
-
 # Hallucination guard: Whisper invents stock phrases ("Thank you.", "Bye!") on
 # near-silence or echo. Drop a segment only when BOTH signals agree it's
 # non-speech, mirroring OpenAI's own no_speech/logprob thresholds — conservative
@@ -84,27 +78,49 @@ class WhisperTranscriber:
         """
         duration_ms = len(audio) / 16000 * 1000
 
-        # "mixed": detect language restricted to en/he, then transcribe with winner
+        t0 = time.perf_counter()
         if language == "mixed":
-            probe = audio[:_LANG_DETECT_SAMPLES] if len(audio) > _LANG_DETECT_SAMPLES else audio
-            _, _top_prob, all_probs = self._model.detect_language(probe)
-            probs = dict(all_probs)
-            whisper_language = "he" if probs.get("he", 0) > probs.get("en", 0) else "en"
-            logger.debug("Mixed mode detected language: %s (en=%.2f, he=%.2f)",
-                         whisper_language, probs.get("en", 0), probs.get("he", 0))
+            # Single encoder pass: let Whisper auto-detect language from the same
+            # audio it's about to transcribe (info.language), instead of a separate
+            # detect_language() probe pass followed by a second transcribe pass.
+            segments, info = self._model.transcribe(
+                audio,
+                language=None,
+                beam_size=1,
+                vad_filter=False,
+                condition_on_previous_text=False,
+            )
+            segments = list(segments)
+            whisper_language = info.language
+            logger.debug("Mixed mode detected language: %s (prob=%.2f)",
+                         whisper_language, info.language_probability)
+
+            if whisper_language not in ("he", "en"):
+                # Rare (noise/babble/other) — retranscribe forced to the profile's
+                # primary language rather than trusting an out-of-scope detection.
+                logger.info("Detected language %r outside he/en — retranscribing forced 'he'",
+                            whisper_language)
+                whisper_language = "he"
+                segments, info = self._model.transcribe(
+                    audio,
+                    language="he",
+                    beam_size=1,
+                    vad_filter=False,
+                    condition_on_previous_text=False,
+                )
+                segments = list(segments)
         else:
             whisper_language = language
+            segments, info = self._model.transcribe(
+                audio,
+                language=whisper_language,
+                beam_size=1,        # greedy — fastest, fine for conversational speech
+                vad_filter=False,   # we already ran our own VAD
+                condition_on_previous_text=False,  # utterances are independent — avoids repetition loops
+            )
+            segments = list(segments)
 
-        t0 = time.perf_counter()
-        segments, _info = self._model.transcribe(
-            audio,
-            language=whisper_language,
-            beam_size=1,        # greedy — fastest, fine for conversational speech
-            vad_filter=False,   # we already ran our own VAD
-            condition_on_previous_text=False,  # utterances are independent — avoids repetition loops
-        )
-
-        # Consume the generator, dropping hallucinated (non-speech) segments.
+        # Drop hallucinated (non-speech) segments.
         parts = []
         for seg in segments:
             no_speech = getattr(seg, "no_speech_prob", 0.0)

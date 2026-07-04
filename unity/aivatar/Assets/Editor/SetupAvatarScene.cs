@@ -12,13 +12,17 @@ public static class SetupAvatarScene
         var client  = SetupConversationClient(lipSync);
         SetupStopButtonUI();
         SetupMicrophoneIndicator(client);
+        SetupCaptionUI(client);
+
+        var motion = lipSync != null ? lipSync.GetComponent<NaturalMotion>() : null;
+        if (motion != null) motion.conversationClient = client;
 
         Debug.Log("[SetupAvatarScene] Scene ready. " +
                   "Start TTS server (:5123), STT server (:8765), then run: " +
                   ".venv/Scripts/python -m aivatar_app  — then press Play.");
     }
 
-    // ── Avatar (lipSync + legacy TTS tester) ─────────────────────────────────
+    // ── Avatar ─────────────────────────────────────────────────────────────
 
     private static AnimClipLipSync SetupAvatar()
     {
@@ -38,13 +42,9 @@ public static class SetupAvatarScene
         var motion = avatarGO.AddComponent<NaturalMotion>();
         motion.lipSync = lipSync;
 
-        // Legacy direct-TTS path (still useful for quick smoke-tests)
-        var speech = avatarGO.AddComponent<AzureSpeechManager>();
-        speech.lipSyncController = lipSync;
-
-        var testerGO = new GameObject("AvatarTester");
-        var tester   = testerGO.AddComponent<TestSpeak>();
-        tester.speechManager = speech;
+        // Note: the legacy direct-TTS smoke-test path (AzureSpeechManager + TestSpeak)
+        // is intentionally not wired into the production scene — see those scripts'
+        // header comments if you need it for a quick Azure-only test.
 
         Selection.activeGameObject = avatarGO;
         return lipSync;
@@ -156,6 +156,35 @@ public static class SetupAvatarScene
         var indicator = go.AddComponent<MicrophoneIndicatorUI>();
         indicator.conversationClient = client;
         indicator.micTexture         = tex;
+    }
+
+    // ── Captions (thinking indicator + transcript/reply text) ────────────────
+
+    private static void SetupCaptionUI(ConversationClient client)
+    {
+        if (GameObject.Find("CaptionUI") != null)
+        {
+            Debug.Log("[SetupAvatarScene] CaptionUI already exists — skipping.");
+            return;
+        }
+
+        var canvasGO = GameObject.Find("StopButtonCanvas") ?? CreateOverlayCanvas("CaptionCanvas");
+
+        var go = new GameObject("CaptionUI");
+        go.transform.SetParent(canvasGO.transform, false);
+
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin        = new Vector2(0f, 0f);
+        rect.anchorMax        = new Vector2(1f, 0f);
+        rect.pivot            = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, 120f);
+        rect.sizeDelta        = new Vector2(-40f, 160f);
+
+        var group = go.AddComponent<CanvasGroup>();
+        group.alpha = 0f;
+
+        var caption = go.AddComponent<CaptionUI>();
+        caption.conversationClient = client;
     }
 
     private static GameObject CreateOverlayCanvas(string name)

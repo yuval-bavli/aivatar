@@ -61,6 +61,7 @@ public class AnimClipLipSync : LipSyncBase
     private int lastVisemeIndex;
     private bool isPlaying;
     private int playFrameCount;
+    private bool moreSegmentsQueued;
 
     private AnimationClip runtimeClip;
     private float fps;
@@ -107,6 +108,11 @@ public class AnimClipLipSync : LipSyncBase
 
     /// <summary>True while audio + viseme animation are playing.</summary>
     public bool isLipSyncPlaying => isPlaying;
+
+    public override void SetMoreSegmentsQueued(bool moreQueued)
+    {
+        moreSegmentsQueued = moreQueued;
+    }
 
     /// <summary>Returns a snapshot of runtime state for external validation.</summary>
     public string GetDiagnostics()
@@ -276,7 +282,11 @@ public class AnimClipLipSync : LipSyncBase
         if (audioStopped || pastClipEnd)
         {
             isPlaying = false;
-            Array.Clear(targetWeights, 0, VISEME_COUNT);
+            // Only decay to rest if nothing else is queued — otherwise hold whatever
+            // pose UpdateTargets last left us at, so the next Play() eases forward
+            // from there instead of pulsing open->rest->open at the segment seam.
+            if (!moreSegmentsQueued)
+                Array.Clear(targetWeights, 0, VISEME_COUNT);
             SmoothAndApply();
             return;
         }
@@ -339,9 +349,19 @@ public class AnimClipLipSync : LipSyncBase
 
         // At or past the last event (always the trailing silence from the scheduler):
         // leave targetWeights cleared so SmoothDamp decays to the rest pose immediately
-        // instead of holding the last mouth shape until AudioSource reports done.
+        // instead of holding the last mouth shape until AudioSource reports done —
+        // unless another segment is already queued, in which case hold the last real
+        // viseme so the seam doesn't pulse shut before the next segment reopens it.
         if (lastVisemeIndex < 0 || lastVisemeIndex >= activeTimeline.visemes.Count - 1)
+        {
+            if (moreSegmentsQueued && lastVisemeIndex >= 0)
+            {
+                int holdId = Mathf.Clamp(activeTimeline.visemes[lastVisemeIndex].visemeId, 0, VISEME_COUNT - 1);
+                if (holdId != 0)
+                    targetWeights[holdId] = 1f;
+            }
             return;
+        }
 
         int curId = Mathf.Clamp(activeTimeline.visemes[lastVisemeIndex].visemeId, 0, VISEME_COUNT - 1);
         int nextId = curId;

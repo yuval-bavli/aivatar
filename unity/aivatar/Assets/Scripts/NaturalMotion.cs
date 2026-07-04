@@ -20,6 +20,19 @@ public class NaturalMotion : MonoBehaviour
     [Tooltip("Rig root to search for bones. If null, uses lipSync.animRoot.")]
     public GameObject rigRoot;
 
+    [Tooltip("Optional — drives listening/thinking/speaking behavior from the orchestrator's status messages.")]
+    public ConversationClient conversationClient;
+
+    [Header("Conversation state behavior")]
+    [Tooltip("Degrees of head tilt toward the camera while listening.")]
+    public float listeningHeadTilt = 3f;
+    [Tooltip("Degrees the head yaws away while thinking (gaze-avoidance).")]
+    public float thinkingHeadYaw = 5f;
+    [Tooltip("Gaze bias (yaw, pitch) applied to eye saccades while thinking — looking up and away.")]
+    public Vector2 thinkingGazeBias = new Vector2(8f, -6f);
+    [Tooltip("Blink interval multiplier while thinking (>1 = slower blinking).")]
+    public float thinkingBlinkSlowdown = 1.5f;
+
     [Header("Blinking")]
     public bool enableBlink = true;
     [Tooltip("Random seconds between blinks.")]
@@ -90,6 +103,26 @@ public class NaturalMotion : MonoBehaviour
     private float _saccadeTimer;
     private Vector2 _gazeTarget;  // (yawDeg, pitchDeg)
     private Vector2 _gazeCurrent;
+
+    // Conversation state (from ConversationClient.OnStateChanged) — "", "listening", "thinking", "speaking", ...
+    private string _convState = "";
+
+    void OnEnable()
+    {
+        if (conversationClient != null)
+            conversationClient.OnStateChanged += SetConversationState;
+    }
+
+    void OnDisable()
+    {
+        if (conversationClient != null)
+            conversationClient.OnStateChanged -= SetConversationState;
+    }
+
+    public void SetConversationState(string state)
+    {
+        _convState = state;
+    }
 
     void Start()
     {
@@ -162,26 +195,36 @@ public class NaturalMotion : MonoBehaviour
             // else: keep previous base — our own write is still on the bone
         }
 
-        bool talking = lipSync != null && lipSync.isLipSyncPlaying;
+        bool talking = (lipSync != null && lipSync.isLipSyncPlaying) || _convState == "speaking";
+        bool listening = !talking && _convState == "listening";
+        bool thinking = !talking && _convState == "thinking";
 
-        UpdateBlink(dt);
+        UpdateBlink(dt, thinking);
         float blinkWeight = CurrentBlinkWeight();
 
         // --- head / neck sway ---
         if (enableHeadSway && _heads.Count > 0)
         {
-            float targetAmp = talking ? talkSwayDegrees : idleSwayDegrees;
+            float targetAmp = talking ? talkSwayDegrees
+                             : listening ? (idleSwayDegrees + talkSwayDegrees) * 0.5f
+                             : thinking ? idleSwayDegrees * 0.6f
+                             : idleSwayDegrees;
             _swayAmp = Mathf.SmoothDamp(_swayAmp, targetAmp, ref _swayAmpVel, 0.8f);
-            _noiseT += dt * (talking ? talkSwaySpeed : idleSwaySpeed);
+            _noiseT += dt * (talking ? talkSwaySpeed : thinking ? idleSwaySpeed * 0.6f : idleSwaySpeed);
 
             float nod  = (Mathf.PerlinNoise(_seedA, _noiseT) - 0.5f) * 2f * _swayAmp;        // pitch
             float turn = (Mathf.PerlinNoise(_seedB, _noiseT) - 0.5f) * 2f * _swayAmp;        // yaw
             float tilt = (Mathf.PerlinNoise(_seedC, _noiseT) - 0.5f) * 2f * _swayAmp * 0.6f; // roll
 
+            // Static bias on top of the ambient sway: nod toward camera while listening,
+            // gaze-avoidance yaw while thinking.
+            float biasPitch = listening ? listeningHeadTilt : 0f;
+            float biasYaw = thinking ? thinkingHeadYaw : 0f;
+
             // World-space delta so behaviour is independent of bone axis conventions
-            Quaternion headDelta = Quaternion.Euler(nod * (1f - neckShare), turn * (1f - neckShare), tilt * (1f - neckShare));
-            Quaternion neckDelta = Quaternion.Euler(nod * neckShare * 0.6f, turn * neckShare * 0.6f, tilt * neckShare * 0.6f);
-            Quaternion neck2Delta = Quaternion.Euler(nod * neckShare * 0.4f, turn * neckShare * 0.4f, tilt * neckShare * 0.4f);
+            Quaternion headDelta = Quaternion.Euler((nod + biasPitch) * (1f - neckShare), (turn + biasYaw) * (1f - neckShare), tilt * (1f - neckShare));
+            Quaternion neckDelta = Quaternion.Euler((nod + biasPitch) * neckShare * 0.6f, (turn + biasYaw) * neckShare * 0.6f, tilt * neckShare * 0.6f);
+            Quaternion neck2Delta = Quaternion.Euler((nod + biasPitch) * neckShare * 0.4f, (turn + biasYaw) * neckShare * 0.4f, tilt * neckShare * 0.4f);
 
             ApplyWorldDelta(_heads, headDelta);
             ApplyWorldDelta(_neck1s, neckDelta);
@@ -202,8 +245,9 @@ public class NaturalMotion : MonoBehaviour
             if (_saccadeTimer <= 0f)
             {
                 _saccadeTimer = Random.Range(saccadeInterval.x, saccadeInterval.y);
-                // Bias toward center so she keeps "looking at" the user
-                _gazeTarget = new Vector2(
+                // Bias toward center (or up-and-away while thinking) so gaze reads intentionally
+                Vector2 center = thinking ? thinkingGazeBias : Vector2.zero;
+                _gazeTarget = center + new Vector2(
                     Random.Range(-saccadeRange.x, saccadeRange.x) * Random.value,
                     Random.Range(-saccadeRange.y, saccadeRange.y) * Random.value);
             }
@@ -242,7 +286,7 @@ public class NaturalMotion : MonoBehaviour
         }
     }
 
-    private void UpdateBlink(float dt)
+    private void UpdateBlink(float dt, bool thinking)
     {
         if (!enableBlink) { _blinkPhase = -1f; return; }
 
@@ -269,7 +313,8 @@ public class NaturalMotion : MonoBehaviour
             }
             else
             {
-                _blinkTimer = Random.Range(blinkInterval.x, blinkInterval.y);
+                _blinkTimer = Random.Range(blinkInterval.x, blinkInterval.y)
+                    * (thinking ? thinkingBlinkSlowdown : 1f);
             }
         }
     }

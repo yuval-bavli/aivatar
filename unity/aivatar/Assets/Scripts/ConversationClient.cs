@@ -56,14 +56,21 @@ public class ConversationClient : MonoBehaviour
         public int                                  sample_rate;
         public float                                duration_ms;
         public AudioVisemeDecoder.VisemeEventData[] viseme_events;
+        public string                               text;
     }
 
     [Serializable]
     private class StatusMessage { public string type; public string state; }
 
+    [Serializable]
+    private class TranscriptMessage { public string type; public string text; }
+
     // ── Events ───────────────────────────────────────────────────────────────
 
     public event Action<string> OnStateChanged;
+    public event Action<string> OnTranscript;
+    public event Action<string> OnSpeakSegmentStarted;
+    public event Action        OnHearing;
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +85,8 @@ public class ConversationClient : MonoBehaviour
     private bool                          _isPlaying;
     private bool                          _playbackStarted;
     private int                           _speakCount;
+    private double                        _segmentEndDsp;
+    private int                           _segmentFrameCount;
 
     private int                           _connectAttempt;
 
@@ -126,19 +135,25 @@ public class ConversationClient : MonoBehaviour
             HandleMessage(raw);
 
         // Playback state machine:
-        // • If playing and audio has started then stopped → send done, try next in queue.
+        // • If playing and audio has started then stopped, OR the scheduled dspTime end has
+        //   passed → send done, try next in queue. The dspTime check is a fallback for
+        //   AudioSource.isPlaying/time misreporting (seen on runtime-created clips).
         // • If not playing and queue has items → start next.
         if (_isPlaying)
         {
+            _segmentFrameCount++;
+            bool pastScheduledEnd = _segmentFrameCount > 2 && AudioSettings.dspTime >= _segmentEndDsp;
+
             if (_audioSource.isPlaying)
             {
                 _playbackStarted = true;
             }
-            else if (_playbackStarted)
+
+            if ((_playbackStarted && !_audioSource.isPlaying) || pastScheduledEnd)
             {
                 _isPlaying = false;
                 _playbackStarted = false;
-                AivatarLogger.Log(TAG, $"[speak#{_speakCount}] AudioSource finished — sending done");
+                AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Playback finished — sending done");
                 _ = SendJsonAsync("{\"type\":\"done\"}");
 
                 // Start next queued segment immediately if available
@@ -276,6 +291,16 @@ public class ConversationClient : MonoBehaviour
                     SetStatusLabel(status?.state ?? "");
                     break;
 
+                case "transcript":
+                    var transcript = JsonUtility.FromJson<TranscriptMessage>(raw);
+                    AivatarLogger.Log(TAG, $"[transcript] {transcript?.text}");
+                    OnTranscript?.Invoke(transcript?.text ?? "");
+                    break;
+
+                case "hearing":
+                    OnHearing?.Invoke();
+                    break;
+
                 case "error":
                     AivatarLogger.Error(TAG, $"[error] Orchestrator error: {raw}");
                     break;
@@ -329,7 +354,11 @@ public class ConversationClient : MonoBehaviour
 
         _isPlaying = true;
         _playbackStarted = false;
+        _segmentFrameCount = 0;
+        _segmentEndDsp = AudioSettings.dspTime + clip.length + 0.05;
+        lipSyncController.SetMoreSegmentsQueued(_speakQueue.Count > 0);
         lipSyncController.Play(timeline, clip);
+        OnSpeakSegmentStarted?.Invoke(msg.text ?? "");
         AivatarLogger.Log(TAG, $"[speak#{_speakCount}] Play() called");
     }
 

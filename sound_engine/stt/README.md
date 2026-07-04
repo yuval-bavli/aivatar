@@ -255,7 +255,7 @@ Client (microphone)
    - `LISTENING → SPEAKING` when probability ≥ 0.5. Prepends a 300ms pre-speech ring buffer so the first phoneme is never clipped.
    - `SPEAKING → LISTENING` after 500ms of consecutive silence. Emits `speech_end`, which triggers transcription.
    - Force-ends at 30s if the speaker hasn't paused (prevents unbounded memory growth).
-4. **Transcription** (`transcriber.py`) normalises the int16 buffer to float32 [-1, 1]. For `en`/`he`, calls `model.transcribe(audio, language=lang, ...)` directly. For `mixed`, first calls `model.detect_language(audio)` to pick whichever of `en`/`he` has a higher probability, then transcribes with that language — ensuring output is never misidentified as Spanish, French, etc.
+4. **Transcription** (`transcriber.py`) normalises the int16 buffer to float32 [-1, 1]. For `en`/`he`, calls `model.transcribe(audio, language=lang, ...)` directly. For `mixed`, calls `model.transcribe(audio, language=None, ...)` and reads the auto-detected language off `info.language` from that same pass (single encoder pass, not a separate detect_language() probe). If the detected language falls outside `en`/`he` (rare — noise, babble), it retranscribes once forced to `he`.
 5. **Result** is sent back as a JSON WebSocket text frame with the transcript, language, audio duration, and inference time.
 
 ### Latency budget
@@ -263,8 +263,7 @@ Client (microphone)
 | Stage | Typical time |
 |-------|-------------|
 | VAD silence detection (500ms threshold) | 500ms |
-| faster-whisper inference on RTX 4070 Ti | 150–300ms |
-| Language detection (`mixed` mode only) | ~50ms |
+| faster-whisper inference on RTX 4070 Ti (incl. language auto-detect in `mixed` mode, same pass) | 150–300ms |
 | WebSocket round-trip (localhost) | <5ms |
 | **Total after end-of-speech (en/he)** | **~650–800ms** |
 | **Total after end-of-speech (mixed)** | **~700–850ms** |
